@@ -36,6 +36,21 @@ impl InputDevice {
     pub(crate) fn physical_path(&self) -> &str {
         &self.physical_path
     }
+    
+    /// Returns a list with all evdev devices which matches vendor/product id and physical path.
+    pub(crate) fn matching_devices(&self) -> Vec<Device> {
+        evdev::enumerate()
+            .filter(|(_, d)| {
+                is_input_device(d)
+                && d.input_id().vendor() == self.vendor_id
+                && d.input_id().product() == self.product_id
+                && d.physical_path()
+                    .map(|p| p.starts_with(&self.physical_path))
+                    .unwrap_or(false)
+            })
+            .map(|(_, d)| d)
+            .collect()
+    }
 }
 
 /// Checks if the given device is an input device.
