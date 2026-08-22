@@ -36,7 +36,7 @@ impl InputDevice {
     pub(crate) fn physical_path(&self) -> &str {
         &self.physical_path
     }
-    
+
     /// Returns a list with all evdev devices which matches vendor/product id and physical path.
     pub(crate) fn matching_devices(&self) -> Vec<Device> {
         evdev::enumerate()
@@ -50,6 +50,18 @@ impl InputDevice {
             })
             .map(|(_, d)| d)
             .collect()
+    }
+}
+
+#[cfg(test)]
+impl InputDevice {
+    pub(crate) fn new_for_test(vendor_id: u16, product_id: u16, name: &str) -> Self {
+        Self::new(
+            name.to_string(),
+            vendor_id,
+            product_id,
+            format!("test-path-{name}"),
+        )
     }
 }
 
