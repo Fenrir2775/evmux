@@ -40,7 +40,7 @@ pub(crate) fn profile_template(name: &str) -> String {
 # type = "macro"
 # from = "KEY_F1"
 # macro_actions = []
-"#
+"# //TODO: macro_actions
     )
 }
 
