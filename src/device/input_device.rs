@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Groups the raw devices from `/dev/input` into a single logical device.
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Eq, Hash, PartialEq)]
 pub(crate) struct InputDevice {
     name: String,
     vendor_id: u16,
