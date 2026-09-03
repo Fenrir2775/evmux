@@ -1,0 +1,170 @@
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use crate::config::config_store::ConfigStore;
+use crate::device::input_device::InputDevice;
+use crate::output::output_runtime::OutputRuntime;
+use crate::session::device_session::DeviceSession;
+use anyhow::{anyhow, Result};
+use evdev::KeyCode;
+use crate::device::input_device;
+use crate::input::record;
+use crate::session::session_command::SessionCommand;
+
+/// Controls all device sessions.
+pub(crate) struct SessionManager {
+    sessions: HashMap<InputDevice, DeviceSession>,
+    store: ConfigStore,
+    output_runtime: OutputRuntime,
+}
+
+impl SessionManager {
+    /// Creates a new session for every device and the `OutputRuntime`.
+    ///
+    /// Bad configs are reported and skipped, because a broken config shouldn't prevent any other from working.
+    pub(crate) fn new() -> Result<Self> {
+        let store = ConfigStore::default();
+        let mut sessions = HashMap::new();
+        let output_runtime = OutputRuntime::new()?;
+
+        for device in input_device::enumerate_devices() {
+            match store.load_device_config(&device) {
+                Ok((handle, config, profiles)) => {
+                    sessions.insert(device, DeviceSession::new(store.clone(), handle, config, profiles));
+                }
+                Err(err) => eprintln!("Failed to load config for '{}': {err:#}", device.name()),
+            }
+        }
+
+        Ok(Self {
+            sessions,
+            store,
+            output_runtime,
+        })
+    }
+
+    /// Returns an iterator over all sessions.
+    pub(crate) fn sessions(&self) -> impl Iterator<Item = &DeviceSession> {
+        self.sessions.values()
+    }
+
+    fn dispatch(&mut self, device: &str, cmd: SessionCommand) -> Result<()> {
+        let tx = self.output_runtime.sender();
+        self.session_mut(device)?.send_command(cmd, tx)
+    }
+
+    /// Starts the device using its currently active profile.
+    pub(crate) fn start(&mut self, device: &str) -> Result<()> {
+        self.dispatch(device, SessionCommand::Start { profile: None })
+    }
+
+    /// Stops the device runtime.
+    pub(crate) fn stop(&mut self, device: &str) -> Result<()> {
+        self.dispatch(device, SessionCommand::Stop)
+    }
+
+    /// Reload configs for all devices and restart them if they were running.
+    pub(crate) fn reload(&mut self) -> Result<()> {
+        let devices = input_device::enumerate_devices();
+
+        for device in self.sessions.keys().cloned().collect::<Vec<_>>() {
+            if !devices.contains(&device)
+                && let Some(mut session) = self.sessions.remove(&device) {
+                let tx = self.output_runtime.sender();
+                let _ = session.send_command(SessionCommand::Stop, tx);
+            }
+        }
+
+        for device in devices {
+            if let Some(session) = self.sessions.get_mut(&device) {
+                let tx = self.output_runtime.sender();
+                if let Err(e) = session.send_command(SessionCommand::Reload, tx) {
+                    eprintln!("Failed to reload '{}': {e:#}", device.name())
+                }
+            } else {
+                match self.store.load_device_config(&device) {
+                    Ok((handle, config, profiles)) => {
+                        self.sessions.insert(
+                            device,
+                            DeviceSession::new(self.store.clone(), handle, config, profiles),
+                        );
+                    }
+                    Err(e) => eprintln!("Failed to load config for '{}': {e:#}", device.name())
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Reload the config for a given device.
+    pub(crate) fn reload_by_path(&mut self, path: &Path) -> Result<()> {
+        let device = self.sessions
+            .iter()
+            .find(|(_, s)| s.config_dir().eq(path))
+            .map(|(d, _)| d.clone());
+
+        if let Some(device) = device {
+            return self.dispatch(device.name(), SessionCommand::Reload)
+        }
+
+        Ok(())
+    }
+
+    /// Creates a new profile for the device and returns the path of the created file.
+    pub(crate) fn add_profile(&mut self, device: &str, name: &str, copy_from: Option<&str>) -> Result<PathBuf> {
+        self.session_mut(device)?.add_profile(name, copy_from)
+    }
+
+    /// Removes a profile from the device.
+    pub(crate) fn remove_profile(&mut self, device: &str, profile: &str) -> Result<()> {
+        self.dispatch(device, SessionCommand::RemoveProfile { name: profile.to_string() })
+    }
+
+    /// Makes the given profile active.
+    pub(crate) fn switch_profile(&mut self, device: &str, profile: &str) -> Result<()> {
+        self.dispatch(device, SessionCommand::SwitchProfile { name: profile.to_string() })
+    }
+
+    /// Records the next keypress of the given device.
+    pub(crate) fn record(&mut self, query: &str) -> Result<KeyCode> {
+        let session = self.session_mut(query)?;
+
+        if session.is_running() {
+            anyhow::bail!(
+                "Cannot record while '{}' is active. Stop it first with: evmux stop \"{}\"",
+                session.device().name(),
+                session.device().name()
+            );
+        }
+
+        let device = session.device();
+        record::record_keypress(device)
+    }
+
+    /// Returns a mutable session for the given query (partial, case-insensitive).
+    ///
+    /// Matches against device name & physical path prefix.
+    ///
+    /// Errors if nothing matches or if more than one device matches.
+    fn session_mut(&mut self, query: &str) -> Result<&mut DeviceSession> {
+        let mut matches: Vec<_> = self
+            .sessions
+            .values_mut()
+            .filter(|s| s.matches(query))
+            .collect();
+
+        match matches.len() {
+            0 => Err(anyhow!("Device '{query}' not found")),
+            1 => Ok(matches.remove(0)),
+            _ => {
+                let mut devices: Vec<_> = matches
+                    .iter()
+                    .map(|s| format!("{} ({})", s.device().name(), s.device().physical_path()))
+                    .collect();
+                devices.sort();
+
+                Err(anyhow!("Device '{query}' is ambiguous, matches:\n {}", devices.join("\n  ")))
+            }
+        }
+    }
+}
