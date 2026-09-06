@@ -4,3 +4,4 @@ pub(super) mod macro_action;
 pub(super) mod profile;
 pub(super) mod rule;
 mod serde;
+pub(super) mod watcher;
