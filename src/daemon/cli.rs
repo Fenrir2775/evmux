@@ -2,7 +2,12 @@ use clap::{Parser, Subcommand};
 use crate::daemon::ipc::Request;
 
 #[derive(Parser)]
-#[command(name = "evmux", about = "Input remapper daemon and controller")]
+#[command(
+    name = "evmux",
+    about = "Input remapper daemon and controller.",
+    long_about = "Input remapper daemon and controller.\n\n\
+        Device arguments support case-insensitive substring matching.\n\
+        if multiple devices match, an error is returned listing the matching devices.")]
 struct Cli {
     #[command(subcommand)]
     pub command: Option<Command>
@@ -16,11 +21,12 @@ enum Command {
     Start { device: String },
     /// Stop remapping for a device
     Stop { device: String },
-    /// Manage profile for a device.
+    /// Manage profiles for a device.
     Profile {
         #[command(subcommand)]
         profile_command: ProfileCommand
     },
+    /// Record key input from a device
     Record { device: String },
 }
 
