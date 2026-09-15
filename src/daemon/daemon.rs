@@ -1,5 +1,5 @@
 use std::path::Path;
-use crate::session::session_manage::SessionManager;
+use crate::session::session_manager::SessionManager;
 use anyhow::Result;
 use crate::daemon::ipc::{DeviceInfo, Request, Response};
 
