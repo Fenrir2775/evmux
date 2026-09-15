@@ -53,7 +53,7 @@ fn run_client(request: Request) -> Result<()> {
 
 fn run_daemon() -> Result<()> {
     if UnixStream::connect(ipc::socket_path()).is_ok() {
-        anyhow::bail!("daemon already running")
+        bail!("daemon already running")
     }
 
     let mut daemon = Daemon::new()?;

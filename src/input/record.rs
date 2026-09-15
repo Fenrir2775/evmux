@@ -1,7 +1,7 @@
-use evdev::{EventType, KeyCode};
 use crate::device::input_device::InputDevice;
-use anyhow::{Context, Result};
 use crate::input::reader::event_stream::RawEventStream;
+use anyhow::{Context, Result};
+use evdev::{EventType, KeyCode};
 
 pub(crate) fn record_keypress(device: &InputDevice) -> Result<KeyCode> {
     eprintln!("record_keypress: {device:?}");

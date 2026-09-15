@@ -1,5 +1,5 @@
-use clap::{Parser, Subcommand};
 use crate::daemon::ipc::Request;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
@@ -7,10 +7,11 @@ use crate::daemon::ipc::Request;
     about = "Input remapper daemon and controller.",
     long_about = "Input remapper daemon and controller.\n\n\
         Device arguments support case-insensitive substring matching.\n\
-        if multiple devices match, an error is returned listing the matching devices.")]
+        if multiple devices match, an error is returned listing the matching devices."
+)]
 struct Cli {
     #[command(subcommand)]
-    pub command: Option<Command>
+    pub command: Option<Command>,
 }
 
 #[derive(Subcommand)]
@@ -24,7 +25,7 @@ enum Command {
     /// Manage profiles for a device.
     Profile {
         #[command(subcommand)]
-        profile_command: ProfileCommand
+        profile_command: ProfileCommand,
     },
     /// Record key input from a device
     Record { device: String },
@@ -37,18 +38,12 @@ enum ProfileCommand {
         device: String,
         name: String,
         #[arg(long, value_name = "PROFILE")]
-        copy_from: Option<String>
+        copy_from: Option<String>,
     },
     /// Remove a profile.
-    Remove {
-        device: String,
-        name: String
-    },
+    Remove { device: String, name: String },
     /// Switch to a named profile.
-    Switch {
-        device: String,
-        profile: String,
-    },
+    Switch { device: String, profile: String },
 }
 
 pub(crate) fn parse_args() -> Option<Request> {
@@ -59,15 +54,23 @@ pub(crate) fn parse_args() -> Option<Request> {
         Some(Command::Start { device }) => Some(Request::Start { device }),
         Some(Command::Stop { device }) => Some(Request::Stop { device }),
         Some(Command::Profile { profile_command }) => match profile_command {
-            ProfileCommand::Add { device, name, copy_from } => Some(Request::AddProfile {
+            ProfileCommand::Add {
                 device,
                 name,
-                copy_from
+                copy_from,
+            } => Some(Request::AddProfile {
+                device,
+                name,
+                copy_from,
             }),
-            ProfileCommand::Remove { device, name } => Some(Request::RemoveProfile { device, name }),
-            ProfileCommand::Switch { device, profile } => Some(Request::SwitchProfile { device, profile }),
+            ProfileCommand::Remove { device, name } => {
+                Some(Request::RemoveProfile { device, name })
+            }
+            ProfileCommand::Switch { device, profile } => {
+                Some(Request::SwitchProfile { device, profile })
+            }
         },
         Some(Command::Record { device }) => Some(Request::Record { device }),
-        None => None
+        None => None,
     }
 }

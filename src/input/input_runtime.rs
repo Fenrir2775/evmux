@@ -17,7 +17,11 @@ pub(crate) struct InputRuntime {
 }
 
 impl InputRuntime {
-    pub(crate) fn start(device: &InputDevice, profile: Arc<Profile>, output_tx: Sender<Actions>) -> Result<Self> {
+    pub(crate) fn start(
+        device: &InputDevice,
+        profile: Arc<Profile>,
+        output_tx: Sender<Actions>,
+    ) -> Result<Self> {
         let (stream, raw_rx) = RawEventStream::open(device)?;
 
         let process = thread::spawn(move || {

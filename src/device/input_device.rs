@@ -42,11 +42,11 @@ impl InputDevice {
         evdev::enumerate()
             .filter(|(_, d)| {
                 is_input_device(d)
-                && d.input_id().vendor() == self.vendor_id
-                && d.input_id().product() == self.product_id
-                && d.physical_path()
-                    .map(|p| p.starts_with(&self.physical_path))
-                    .unwrap_or(false)
+                    && d.input_id().vendor() == self.vendor_id
+                    && d.input_id().product() == self.product_id
+                    && d.physical_path()
+                        .map(|p| p.starts_with(&self.physical_path))
+                        .unwrap_or(false)
             })
             .map(|(_, d)| d)
             .collect()

@@ -1,9 +1,9 @@
+use anyhow::{Context, Result};
+use crossbeam_channel::Sender;
+use inotify::{EventMask, Inotify, WatchDescriptor, WatchMask};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::thread;
-use crossbeam_channel::Sender;
-use anyhow::{Context, Result};
-use inotify::{EventMask, Inotify, WatchDescriptor, WatchMask};
 
 pub(crate) enum WatchEvent {
     /// Occurs if a `.toml` file change inside a device directory.
@@ -31,8 +31,10 @@ fn run(root: PathBuf, tx: Sender<WatchEvent>) -> Result<()> {
     // watch for the root directory
     let root_wd = inotify
         .watches()
-        .add(&root,
-        WatchMask::CREATE | WatchMask::DELETE | WatchMask::MOVE)
+        .add(
+            &root,
+            WatchMask::CREATE | WatchMask::DELETE | WatchMask::MOVE,
+        )
         .context("Failed to add watch to config root directory")?;
 
     // add watches for all device directories
@@ -57,7 +59,10 @@ fn run(root: PathBuf, tx: Sender<WatchEvent>) -> Result<()> {
                 }
 
                 // add to watcher if a new directory appears
-                if event.mask.intersects(EventMask::CREATE | EventMask::MOVED_TO) {
+                if event
+                    .mask
+                    .intersects(EventMask::CREATE | EventMask::MOVED_TO)
+                {
                     if let Some(name) = name {
                         let dir = root.join(&name);
                         if let Err(e) = watch_device_dir(&mut inotify, &mut watches, dir) {
@@ -65,9 +70,12 @@ fn run(root: PathBuf, tx: Sender<WatchEvent>) -> Result<()> {
                         }
                     }
                     // or remove if one disappears
-                } else if event.mask.intersects(EventMask::DELETE | EventMask::MOVED_FROM)
-                    && let Some(name) = name {
-                        watches.retain(|_, p| p != &root.join(&name));
+                } else if event
+                    .mask
+                    .intersects(EventMask::DELETE | EventMask::MOVED_FROM)
+                    && let Some(name) = name
+                {
+                    watches.retain(|_, p| p != &root.join(&name));
                 }
 
                 tx.send(WatchEvent::DeviceDirChanged)?;
@@ -88,7 +96,11 @@ fn run(root: PathBuf, tx: Sender<WatchEvent>) -> Result<()> {
     }
 
     /// Add a device directory to the watcher
-    fn watch_device_dir(inotify: &mut Inotify, watches: &mut HashMap<WatchDescriptor, PathBuf>, dir: PathBuf) -> Result<()> {
+    fn watch_device_dir(
+        inotify: &mut Inotify,
+        watches: &mut HashMap<WatchDescriptor, PathBuf>,
+        dir: PathBuf,
+    ) -> Result<()> {
         let wd = inotify
             .watches()
             .add(

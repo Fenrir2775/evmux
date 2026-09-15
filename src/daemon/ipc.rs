@@ -1,12 +1,12 @@
-use std::io::{BufReader};
+use anyhow::{Context, Result, anyhow};
+use crossbeam_channel::Sender;
+use serde::{Deserialize, Serialize};
+use std::io::BufReader;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use crossbeam_channel::Sender;
-use serde::{Deserialize, Serialize};
-use anyhow::{anyhow, Context, Result};
 
 /// Infos about a single device's state.
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,9 +22,13 @@ pub(crate) struct DeviceInfo {
 #[serde(tag = "request", rename_all = "snake_case")]
 pub(crate) enum Request {
     /// Starts remapping for the given device.
-    Start { device: String },
+    Start {
+        device: String,
+    },
     /// Stops remapping for the given device.
-    Stop { device: String },
+    Stop {
+        device: String,
+    },
     /// Adds a new profile to a device,
     /// optionally copy from an already existing device.
     AddProfile {
@@ -46,17 +50,25 @@ pub(crate) enum Request {
     ListDevices,
     /// Reload all configs from disk.
     Reload,
-    Record { device: String },
+    Record {
+        device: String,
+    },
 }
 
 /// Responses sent from the daemon.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "response", rename_all = "snake_case")]
 pub(crate) enum Response {
-    Success { message: String },
-    Error { message: String },
+    Success {
+        message: String,
+    },
+    Error {
+        message: String,
+    },
     /// Response to [`Request::ListDevices`]
-    Devices { devices: Vec<DeviceInfo> },
+    Devices {
+        devices: Vec<DeviceInfo>,
+    },
 }
 
 /// Path of the Unix socket.
@@ -68,8 +80,8 @@ pub(crate) fn socket_path() -> PathBuf {
 
 fn fallback_dir() -> PathBuf {
     let dir = dirs::config_dir()
-    .unwrap_or_else(|| PathBuf::from("."))
-    .join("evmux");
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("evmux");
 
     let _ = std::fs::create_dir_all(&dir);
 

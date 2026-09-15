@@ -1,7 +1,7 @@
-use std::path::Path;
+use crate::daemon::ipc::{DeviceInfo, Request, Response};
 use crate::session::session_manager::SessionManager;
 use anyhow::Result;
-use crate::daemon::ipc::{DeviceInfo, Request, Response};
+use std::path::Path;
 
 pub(crate) struct Daemon {
     manager: SessionManager,
@@ -21,31 +21,34 @@ impl Daemon {
                 devices: self.device_infos(),
             },
             Request::Start { device } => Self::respond(self.manager.start(&device), |_| {
-               format!("Started '{device}'")
+                format!("Started '{device}'")
             }),
             Request::Stop { device } => Self::respond(self.manager.stop(&device), |_| {
-               format!("Stopped '{device}'")
+                format!("Stopped '{device}'")
             }),
             Request::SwitchProfile { device, profile } => {
                 Self::respond(self.manager.switch_profile(&device, &profile), |_| {
                     format!("Switched '{device}' to profile '{profile}'")
                 })
-            },
-            Request::AddProfile { device, name, copy_from } => {
-                Self::respond(self.manager.add_profile(&device, &name, copy_from.as_deref()),
-                |path| format!("Created profile '{name}' at {}", path.display()))
-            },
+            }
+            Request::AddProfile {
+                device,
+                name,
+                copy_from,
+            } => Self::respond(
+                self.manager
+                    .add_profile(&device, &name, copy_from.as_deref()),
+                |path| format!("Created profile '{name}' at {}", path.display()),
+            ),
             Request::RemoveProfile { device, name } => {
                 Self::respond(self.manager.remove_profile(&device, &name), |_| {
                     format!("Removed profile '{name}', from {device}")
                 })
-            },
-            Request::Reload => Self::respond(self.reload(), |_| {
-                "Configuration reloaded".into()
-            }),
+            }
+            Request::Reload => Self::respond(self.reload(), |_| "Configuration reloaded".into()),
             Request::Record { device } => Self::respond(self.manager.record(&device), |key| {
                 format!("Detected: {key:?} (code: {})", key.0)
-            })
+            }),
         }
     }
 
@@ -78,7 +81,7 @@ impl Daemon {
                 name: session.device().name().to_owned(),
                 running: session.is_running(),
                 profiles: session.profiles(),
-                active_profile: session.active_profile()
+                active_profile: session.active_profile(),
             })
             .collect()
     }
