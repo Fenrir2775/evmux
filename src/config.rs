@@ -1,4 +1,4 @@
-pub(super) mod config_store;
+pub(super) mod device_handle;
 pub(super) mod device_config;
 pub(super) mod macro_action;
 pub(super) mod profile;

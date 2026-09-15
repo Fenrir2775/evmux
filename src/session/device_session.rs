@@ -1,7 +1,8 @@
-use crate::config::config_store::{ConfigStore, DeviceHandle};
 use crate::config::device_config::DeviceConfig;
+use crate::config::device_handle::DeviceHandle;
 use crate::config::profile;
 use crate::config::profile::Profile;
+use crate::device::input_device::InputDevice;
 use crate::input::input_runtime::InputRuntime;
 use crate::output::action::Actions;
 use crate::session::session_command::SessionCommand;
@@ -10,11 +11,9 @@ use crossbeam_channel::Sender;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use crate::device::input_device::InputDevice;
 
 /// A session manages a single physical device.
 pub(crate) struct DeviceSession {
-    config_store: ConfigStore,
     handle: DeviceHandle,
     config: DeviceConfig,
     profiles: HashMap<String, Arc<Profile>>,
@@ -23,17 +22,11 @@ pub(crate) struct DeviceSession {
 }
 
 impl DeviceSession {
-    pub(crate) fn new(
-        config_store: ConfigStore,
-        handle: DeviceHandle,
-        config: DeviceConfig,
-        profiles: Vec<Profile>,
-    ) -> Self {
+    pub(crate) fn new(handle: DeviceHandle, config: DeviceConfig, profiles: Vec<Profile>) -> Self {
         let profiles = Self::build_profiles(profiles);
         let active_profile = Self::resolve_active(&config, None, &profiles);
 
         Self {
-            config_store,
             handle,
             config,
             profiles,
@@ -53,11 +46,11 @@ impl DeviceSession {
     pub(crate) fn config_dir(&self) -> &Path {
         self.handle.dir()
     }
-    
+
     pub(crate) fn profiles(&self) -> Vec<String> {
         self.profiles.keys().cloned().collect()
     }
-    
+
     pub(crate) fn active_profile(&self) -> Option<String> {
         self.active_profile.clone()
     }
@@ -154,9 +147,7 @@ impl DeviceSession {
             }
         };
 
-        let path = self
-            .config_store
-            .write_profile_content(&self.handle, name, &content)?;
+        let path = self.handle.write_profile_content(name, &content)?;
 
         self.reload()?;
 
@@ -168,7 +159,7 @@ impl DeviceSession {
             anyhow::bail!("Profile '{name}' doesn't exists");
         }
 
-        self.config_store.delete_profile(&self.handle, name)?;
+        self.handle.delete_profile(name)?;
         self.reload()
     }
 
@@ -186,9 +177,7 @@ impl DeviceSession {
     /// Tries to keep the previously active profile active.
     fn reload(&mut self) -> Result<()> {
         let current = self.active_profile.clone();
-        let (config, profiles) = self
-            .config_store
-            .reload_device_config(&self.handle, &self.config.device)?;
+        let (config, profiles) = self.handle.reload_device_config(&self.config.device)?;
         let profiles = Self::build_profiles(profiles);
         let active = Self::resolve_active(&config, current, &profiles);
 
@@ -256,11 +245,10 @@ mod tests {
 
     fn test_session() -> DeviceSession {
         let tmp = tempdir().unwrap();
-        let store = ConfigStore::with_root(tmp.path());
         let device = InputDevice::default();
-        let (handle, config, profiles) = store.load_device_config(&device).unwrap();
+        let (handle, config, profiles) = DeviceHandle::load_for_test(tmp.path(), &device).unwrap();
 
-        DeviceSession::new(store, handle, config, profiles)
+        DeviceSession::new(handle, config, profiles)
     }
 
     #[test]

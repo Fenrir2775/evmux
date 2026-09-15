@@ -1,19 +1,18 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use crate::config::config_store::ConfigStore;
+use crate::config::device_handle::DeviceHandle;
+use crate::device::input_device;
 use crate::device::input_device::InputDevice;
+use crate::input::record;
 use crate::output::output_runtime::OutputRuntime;
 use crate::session::device_session::DeviceSession;
-use anyhow::{anyhow, Result};
-use evdev::KeyCode;
-use crate::device::input_device;
-use crate::input::record;
 use crate::session::session_command::SessionCommand;
+use anyhow::{Result, anyhow};
+use evdev::KeyCode;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// Controls all device sessions.
 pub(crate) struct SessionManager {
     sessions: HashMap<InputDevice, DeviceSession>,
-    store: ConfigStore,
     output_runtime: OutputRuntime,
 }
 
@@ -22,14 +21,13 @@ impl SessionManager {
     ///
     /// Bad configs are reported and skipped, because a broken config shouldn't prevent any other from working.
     pub(crate) fn new() -> Result<Self> {
-        let store = ConfigStore::default();
         let mut sessions = HashMap::new();
         let output_runtime = OutputRuntime::new()?;
 
         for device in input_device::enumerate_devices() {
-            match store.load_device_config(&device) {
+            match DeviceHandle::load(&device) {
                 Ok((handle, config, profiles)) => {
-                    sessions.insert(device, DeviceSession::new(store.clone(), handle, config, profiles));
+                    sessions.insert(device, DeviceSession::new(handle, config, profiles));
                 }
                 Err(err) => eprintln!("Failed to load config for '{}': {err:#}", device.name()),
             }
@@ -37,7 +35,6 @@ impl SessionManager {
 
         Ok(Self {
             sessions,
-            store,
             output_runtime,
         })
     }
@@ -68,7 +65,8 @@ impl SessionManager {
 
         for device in self.sessions.keys().cloned().collect::<Vec<_>>() {
             if !devices.contains(&device)
-                && let Some(mut session) = self.sessions.remove(&device) {
+                && let Some(mut session) = self.sessions.remove(&device)
+            {
                 let tx = self.output_runtime.sender();
                 let _ = session.send_command(SessionCommand::Stop, tx);
             }
@@ -81,14 +79,12 @@ impl SessionManager {
                     eprintln!("Failed to reload '{}': {e:#}", device.name())
                 }
             } else {
-                match self.store.load_device_config(&device) {
+                match DeviceHandle::load(&device) {
                     Ok((handle, config, profiles)) => {
-                        self.sessions.insert(
-                            device,
-                            DeviceSession::new(self.store.clone(), handle, config, profiles),
-                        );
+                        self.sessions
+                            .insert(device, DeviceSession::new(handle, config, profiles));
                     }
-                    Err(e) => eprintln!("Failed to load config for '{}': {e:#}", device.name())
+                    Err(e) => eprintln!("Failed to load config for '{}': {e:#}", device.name()),
                 }
             }
         }
@@ -98,31 +94,47 @@ impl SessionManager {
 
     /// Reload the config for a given device.
     pub(crate) fn reload_by_path(&mut self, path: &Path) -> Result<()> {
-        let device = self.sessions
+        let device = self
+            .sessions
             .iter()
             .find(|(_, s)| s.config_dir().eq(path))
             .map(|(d, _)| d.clone());
 
         if let Some(device) = device {
-            return self.dispatch(device.name(), SessionCommand::Reload)
+            return self.dispatch(device.name(), SessionCommand::Reload);
         }
 
         Ok(())
     }
 
     /// Creates a new profile for the device and returns the path of the created file.
-    pub(crate) fn add_profile(&mut self, device: &str, name: &str, copy_from: Option<&str>) -> Result<PathBuf> {
+    pub(crate) fn add_profile(
+        &mut self,
+        device: &str,
+        name: &str,
+        copy_from: Option<&str>,
+    ) -> Result<PathBuf> {
         self.session_mut(device)?.add_profile(name, copy_from)
     }
 
     /// Removes a profile from the device.
     pub(crate) fn remove_profile(&mut self, device: &str, profile: &str) -> Result<()> {
-        self.dispatch(device, SessionCommand::RemoveProfile { name: profile.to_string() })
+        self.dispatch(
+            device,
+            SessionCommand::RemoveProfile {
+                name: profile.to_string(),
+            },
+        )
     }
 
     /// Makes the given profile active.
     pub(crate) fn switch_profile(&mut self, device: &str, profile: &str) -> Result<()> {
-        self.dispatch(device, SessionCommand::SwitchProfile { name: profile.to_string() })
+        self.dispatch(
+            device,
+            SessionCommand::SwitchProfile {
+                name: profile.to_string(),
+            },
+        )
     }
 
     /// Records the next keypress of the given device.
@@ -163,7 +175,10 @@ impl SessionManager {
                     .collect();
                 devices.sort();
 
-                Err(anyhow!("Device '{query}' is ambiguous, matches:\n {}", devices.join("\n  ")))
+                Err(anyhow!(
+                    "Device '{query}' is ambiguous, matches:\n {}",
+                    devices.join("\n  ")
+                ))
             }
         }
     }

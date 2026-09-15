@@ -5,7 +5,7 @@ mod input;
 mod output;
 mod session;
 
-use crate::config::config_store::ConfigStore;
+use crate::config::device_handle::config_root;
 use crate::config::watcher;
 use crate::config::watcher::WatchEvent;
 use crate::daemon::daemon::Daemon;
@@ -58,7 +58,7 @@ fn run_daemon() -> Result<()> {
 
     let mut daemon = Daemon::new()?;
     let (watch_tx, watch_rx) = crossbeam_channel::unbounded();
-    watcher::spawn_watcher(ConfigStore::root_dir(), watch_tx)?;
+    watcher::spawn_watcher(config_root(), watch_tx)?;
 
     let (ipc_tx, ipc_rx) = crossbeam_channel::unbounded();
     ipc::spawn_ipc_listener(ipc_tx)?;
