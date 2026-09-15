@@ -11,11 +11,16 @@ use crate::config::watcher::WatchEvent;
 use crate::daemon::daemon::Daemon;
 use crate::daemon::ipc::{Request, Response};
 use crate::daemon::{cli, ipc};
-use anyhow::Result;
+use anyhow::{Result, bail, ensure};
 use crossbeam_channel::select;
+use std::fs::OpenOptions;
+use std::io::ErrorKind;
 use std::os::unix::net::UnixStream;
+use std::path::Path;
 
 fn main() -> Result<()> {
+    check_permissions()?;
+
     match cli::parse_args() {
         Some(request) => run_client(request),
         None => run_daemon(),
@@ -83,4 +88,62 @@ fn run_daemon() -> Result<()> {
             }
         }
     }
+}
+
+fn check_permissions() -> Result<()> {
+    check_uinput()?;
+    check_input()?;
+
+    Ok(())
+}
+
+fn check_uinput() -> Result<()> {
+    let path = Path::new("/dev/uinput");
+
+    ensure!(
+        path.exists(),
+        "{path:?} does not exist. Please run 'sudo modprobe uinput'"
+    );
+
+    if let Err(e) = OpenOptions::new().write(true).open(path) {
+        match e.kind() {
+            ErrorKind::NotFound => {
+                bail!("uinput kernel module not loaded. Please run 'sudo modprobe uinput'")
+            }
+            ErrorKind::PermissionDenied => bail!(
+                "evmux cannot write to {path:?}.\n\
+            Ensure your udev rules are applied and your user belongs to the `input` group."
+            ),
+            _ => bail!("Cannot access {path:?}: {e:#}"),
+        }
+    };
+
+    Ok(())
+}
+
+fn check_input() -> Result<()> {
+    let path = Path::new("/dev/input");
+    let mut readable = false;
+
+    for entry in std::fs::read_dir(path)? {
+        let path = entry?.path();
+
+        if path
+            .file_name()
+            .and_then(|f| f.to_str())
+            .is_some_and(|f| f.starts_with("event"))
+            && OpenOptions::new().read(true).open(path).is_ok()
+        {
+            readable = true;
+            break;
+        }
+    }
+
+    if !readable {
+        bail!(
+            "Cannot read input devices in {path:?}. Ensure your user belongs to the `input` group."
+        );
+    }
+
+    Ok(())
 }
