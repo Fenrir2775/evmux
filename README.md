@@ -9,7 +9,7 @@ through a virtual output device.</br>
 Every physical device gets its own configuration directory.</br>
 
 It can also run as a daemon: either as a systemd system or user service,</br>
-whichever you prefer (the Arch package sets up a user-level service by default; see [Installation AUR](#arch-linux-aur)).
+whichever you prefer.
 
 ***Currently supported actions:***
 - Key to key
@@ -22,20 +22,6 @@ whichever you prefer (the Arch package sets up a user-level service by default; 
 
 **`evmux` accesses Linux input devices directly. The user running `evmux` needs read access
 to `/dev/input/event*` and write access to `/dev/uinput`.**
-
-### Arch Linux (AUR)
-
-`paru -S evmux`
-
-
-This package installs an udev [rule](#2-create-an-udev-rule-granting-the-input-group-access-to-devuinput) that grants the `input` group access to `/dev/uinput`
-and sets up a systemd user-level [daemon](#5-create-a-systemd-user-service-configsystemduserevmuxservice). You still need to add yourself to
-the group once:
-
-`sudo usermod -aG input "$USER"`
-
-
-Log out and back in (or reboot) for the group membership to take effect.
 
 ### Build yourself
 
