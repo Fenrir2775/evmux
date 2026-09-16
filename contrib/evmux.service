@@ -1,0 +1,9 @@
+[Unit]
+Description=evmux input remapping daemon
+
+[Service]
+ExecStart=/usr/bin/evmux
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
