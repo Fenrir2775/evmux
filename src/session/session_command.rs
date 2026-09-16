@@ -5,9 +5,9 @@ pub(crate) enum SessionCommand {
     /// Stops remapping.
     Stop,
     /// Switch to the given profile.
-    SwitchProfile { name: String },
+    SwitchProfile { profile: String },
     /// Removes a profile file.
-    RemoveProfile { name: String },
+    RemoveProfile { profile: String },
     /// Reload the device Config from disk.
     Reload,
 }

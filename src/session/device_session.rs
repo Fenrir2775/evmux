@@ -68,15 +68,15 @@ impl DeviceSession {
 
                 Ok(())
             }
-            SessionCommand::SwitchProfile { name } => {
-                self.switch_profile(&name)?;
-                self.restart(output_tx, Some(&name))?;
+            SessionCommand::SwitchProfile { profile } => {
+                self.switch_profile(&profile)?;
+                self.restart(output_tx, Some(&profile))?;
 
                 Ok(())
             }
-            SessionCommand::RemoveProfile { name } => {
-                self.remove_profile(&name)?;
-                self.restart(output_tx, Some(&name))?;
+            SessionCommand::RemoveProfile { profile } => {
+                self.remove_profile(&profile)?;
+                self.restart(output_tx, Some(&profile))?;
 
                 Ok(())
             }
