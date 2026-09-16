@@ -19,7 +19,11 @@ enum Command {
     /// List all discovered devices and profiles.
     List,
     /// Start remapping for a device.
-    Start { device: String },
+    Start {
+        device: String,
+        #[arg(short, long)]
+        profile: Option<String>
+    },
     /// Stop remapping for a device
     Stop { device: String },
     /// Manage profiles for a device.
@@ -36,12 +40,12 @@ enum ProfileCommand {
     /// Create a new profile.
     Add {
         device: String,
-        name: String,
-        #[arg(long, value_name = "PROFILE")]
+        profile: String,
+        #[arg(short, long, value_name = "PROFILE")]
         copy_from: Option<String>,
     },
     /// Remove a profile.
-    Remove { device: String, name: String },
+    Remove { device: String, profile: String },
     /// Switch to a named profile.
     Switch { device: String, profile: String },
 }
@@ -51,20 +55,20 @@ pub(crate) fn parse_args() -> Option<Request> {
 
     match cli.command {
         Some(Command::List) => Some(Request::ListDevices),
-        Some(Command::Start { device }) => Some(Request::Start { device }),
+        Some(Command::Start { device, profile}) => Some(Request::Start { device, profile }),
         Some(Command::Stop { device }) => Some(Request::Stop { device }),
         Some(Command::Profile { profile_command }) => match profile_command {
             ProfileCommand::Add {
                 device,
-                name,
+                profile,
                 copy_from,
             } => Some(Request::AddProfile {
                 device,
-                name,
+                profile,
                 copy_from,
             }),
-            ProfileCommand::Remove { device, name } => {
-                Some(Request::RemoveProfile { device, name })
+            ProfileCommand::Remove { device, profile } => {
+                Some(Request::RemoveProfile { device, profile })
             }
             ProfileCommand::Switch { device, profile } => {
                 Some(Request::SwitchProfile { device, profile })

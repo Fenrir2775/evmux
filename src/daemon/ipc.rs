@@ -24,6 +24,7 @@ pub(crate) enum Request {
     /// Starts remapping for the given device.
     Start {
         device: String,
+        profile: Option<String>,
     },
     /// Stops remapping for the given device.
     Stop {
@@ -33,13 +34,13 @@ pub(crate) enum Request {
     /// optionally copy from an already existing device.
     AddProfile {
         device: String,
-        name: String,
+        profile: String,
         copy_from: Option<String>,
     },
     /// Removes a profile from a device.
     RemoveProfile {
         device: String,
-        name: String,
+        profile: String,
     },
     /// Switch the active profile of the given device.
     SwitchProfile {

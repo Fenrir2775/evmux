@@ -50,8 +50,8 @@ impl SessionManager {
     }
 
     /// Starts the device using its currently active profile.
-    pub(crate) fn start(&mut self, device: &str) -> Result<()> {
-        self.dispatch(device, SessionCommand::Start { profile: None })
+    pub(crate) fn start(&mut self, device: &str, profile: Option<String>) -> Result<()> {
+        self.dispatch(device, SessionCommand::Start { profile })
     }
 
     /// Stops the device runtime.
@@ -108,6 +108,9 @@ impl SessionManager {
     }
 
     /// Creates a new profile for the device and returns the path of the created file.
+    /// 
+    /// This bypasses `SessionCommand` because it is just a filesystem operation that
+    /// doesn't touch the sessions state.
     pub(crate) fn add_profile(
         &mut self,
         device: &str,
@@ -122,7 +125,7 @@ impl SessionManager {
         self.dispatch(
             device,
             SessionCommand::RemoveProfile {
-                name: profile.to_string(),
+                profile: profile.to_string(),
             },
         )
     }
@@ -132,7 +135,7 @@ impl SessionManager {
         self.dispatch(
             device,
             SessionCommand::SwitchProfile {
-                name: profile.to_string(),
+                profile: profile.to_string(),
             },
         )
     }
