@@ -25,8 +25,6 @@ to `/dev/input/event*` and write access to `/dev/uinput`.**
 
 ### Build yourself
 
-If you're not installing via the AUR, you need to build and set this up yourself.
-
 ***1. Build and install the binary:***
 
 ```bash
@@ -92,7 +90,8 @@ no device is selected automatically.
 | Command | Description |
 |---|---|
 | `evmux list` | List devices and profiles |
-| `evmux start <DEVICE>` | Start remapping |
+| `evmux start <DEVICE>` | Start remapping with the current profile |
+| `evmux start <DEVICE> -p, --profile default` | Start remapping with the specified profile |
 | `evmux stop <DEVICE>` | Stop remapping |
 | `evmux record <DEVICE>` | Record the next key input from the specified device and print it |
 
@@ -101,7 +100,7 @@ no device is selected automatically.
 | Command | Description |
 |---|---|
 | `evmux profile add <DEVICE> <NAME>` | Add a profile |
-| `evmux profile add razer gaming --copy-from default` | An existing profile can be used as a template |
+| `evmux profile add razer gaming -c, --copy-from default` | An existing profile can be used as a template |
 | `evmux profile remove <DEVICE> <NAME>` | Remove a profile |
 | `evmux profile switch <DEVICE> <PROFILE>` | Switch profile |
 
