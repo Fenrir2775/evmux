@@ -4,6 +4,12 @@ version = "0.1.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 
+authors = ["Fenrir <fenrir.git@gmail.com>"]
+homepage = "https://github.com/Fenrir2775/evmux"
+repository = "https://github.com/Fenrir2775/evmux"
+description = "A linux input remapper"
+keywords = ["uinput", "keyboard", "mouse", "remapper", "gaming"]
+
 [dependencies]
 anyhow = "1.0.104"
 evdev = "0.13.2"
