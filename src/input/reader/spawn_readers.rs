@@ -73,9 +73,10 @@ fn run_reader_loop(
                             return Ok(());
                         }
                     }
+                    Err(nix::errno::Errno::EINTR) => {},
                     Err(e) => return Err(anyhow!(e)),
                 }
-            }
+            },
             Err(e) => anyhow::bail!("failed to fetch input events: {e}"),
         }
     }
