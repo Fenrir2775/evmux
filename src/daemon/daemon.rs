@@ -23,17 +23,17 @@ impl Daemon {
             Request::Start { device, profile } => {
                 let result = self.manager.start(&device, profile.clone());
                 
-                Self::respond(result, |_| match profile {
-                    Some(p) => format!("Started '{device}' with profile: '{p}'"),
+                Self::respond(result, |d| match profile {
+                    Some(p) => format!("Started '{}' with profile: '{p}'", d.name()),
                     None => format!("Started '{device}'"),
                 })
             },
-            Request::Stop { device } => Self::respond(self.manager.stop(&device), |_| {
-                format!("Stopped '{device}'")
+            Request::Stop { device } => Self::respond(self.manager.stop(&device), |d| {
+                format!("Stopped '{}'", d.name())
             }),
             Request::SwitchProfile { device, profile } => {
-                Self::respond(self.manager.switch_profile(&device, &profile), |_| {
-                    format!("Switched '{device}' to profile '{profile}'")
+                Self::respond(self.manager.switch_profile(&device, &profile), |d| {
+                    format!("Switched '{}' to profile '{profile}'", d.name())
                 })
             }
             Request::AddProfile {
@@ -46,8 +46,8 @@ impl Daemon {
                 |path| format!("Created profile '{profile}' at {}", path.display()),
             ),
             Request::RemoveProfile { device, profile } => {
-                Self::respond(self.manager.remove_profile(&device, &profile), |_| {
-                    format!("Removed profile '{profile}', from {device}")
+                Self::respond(self.manager.remove_profile(&device, &profile), |d| {
+                    format!("Removed profile '{profile}', from {}", d.name())
                 })
             }
             Request::Reload => Self::respond(self.reload(), |_| "Configuration reloaded".into()),
