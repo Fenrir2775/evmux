@@ -44,19 +44,26 @@ impl SessionManager {
         self.sessions.values()
     }
 
-    fn dispatch(&mut self, device: &str, cmd: SessionCommand) -> Result<()> {
+    fn dispatch(&mut self, device: &str, cmd: SessionCommand) -> Result<&DeviceSession> {
         let tx = self.output_runtime.sender();
-        self.session_mut(device)?.send_command(cmd, tx)
+        let session = self.session_mut(device)?;
+        session.send_command(cmd, tx)?;
+
+        Ok(session)
     }
 
     /// Starts the device using its currently active profile.
-    pub(crate) fn start(&mut self, device: &str, profile: Option<String>) -> Result<()> {
-        self.dispatch(device, SessionCommand::Start { profile })
+    pub(crate) fn start(&mut self, device: &str, profile: Option<String>) -> Result<&InputDevice> {
+        let session = self.dispatch(device, SessionCommand::Start { profile })?;
+
+        Ok(session.device())
     }
 
     /// Stops the device runtime.
-    pub(crate) fn stop(&mut self, device: &str) -> Result<()> {
-        self.dispatch(device, SessionCommand::Stop)
+    pub(crate) fn stop(&mut self, device: &str) -> Result<&InputDevice> {
+        let session = self.dispatch(device, SessionCommand::Stop)?;
+
+        Ok(session.device())
     }
 
     /// Reload configs for all devices and restart them if they were running.
@@ -101,7 +108,7 @@ impl SessionManager {
             .map(|(d, _)| d.clone());
 
         if let Some(device) = device {
-            return self.dispatch(device.name(), SessionCommand::Reload);
+            self.dispatch(device.name(), SessionCommand::Reload)?;
         }
 
         Ok(())
@@ -121,23 +128,27 @@ impl SessionManager {
     }
 
     /// Removes a profile from the device.
-    pub(crate) fn remove_profile(&mut self, device: &str, profile: &str) -> Result<()> {
-        self.dispatch(
+    pub(crate) fn remove_profile(&mut self, device: &str, profile: &str) -> Result<&InputDevice> {
+        let session = self.dispatch(
             device,
             SessionCommand::RemoveProfile {
                 profile: profile.to_string(),
             },
-        )
+        )?;
+
+        Ok(session.device())
     }
 
     /// Makes the given profile active.
-    pub(crate) fn switch_profile(&mut self, device: &str, profile: &str) -> Result<()> {
-        self.dispatch(
+    pub(crate) fn switch_profile(&mut self, device: &str, profile: &str) -> Result<&InputDevice> {
+        let session = self.dispatch(
             device,
             SessionCommand::SwitchProfile {
                 profile: profile.to_string(),
             },
-        )
+        )?;
+
+        Ok(session.device())
     }
 
     /// Records the next keypress of the given device.
