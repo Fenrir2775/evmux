@@ -3,16 +3,7 @@ use crate::config::profile::Profile;
 use crate::device::input_device::InputDevice;
 use anyhow::{Result, anyhow};
 use std::path::{Path, PathBuf};
-
-/// The root directory for all device configurations.
-///
-/// `$HOME/.config/evmux/devices`
-pub(crate) fn config_root() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from(".config"))
-        .join("evmux")
-        .join("devices")
-}
+use crate::config;
 
 pub(crate) struct DeviceHandle {
     dir: PathBuf,
@@ -28,12 +19,12 @@ impl DeviceHandle {
     }
 
     pub(crate) fn load(device: &InputDevice) -> Result<(Self, DeviceConfig, Vec<Profile>)> {
-        Self::load_in(&config_root(), device)
+        Self::load_in(&config::devices_dir(), device)
     }
 
     fn load_in(root: &Path, device: &InputDevice) -> Result<(Self, DeviceConfig, Vec<Profile>)> {
         let dir =
-            find_config_dir(&root, device)?.unwrap_or_else(|| generate_dir_name(&root, device));
+            find_config_dir(root, device)?.unwrap_or_else(|| generate_dir_name(root, device));
         let handle = Self { dir };
         let config = load_or_init_device_config(device, &handle.dir)?;
         let profiles = handle.load_profiles()?;
