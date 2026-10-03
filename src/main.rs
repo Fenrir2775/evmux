@@ -57,9 +57,9 @@ fn run_daemon() -> Result<()> {
 
     let mut daemon = Daemon::new()?;
     let (watch_tx, watch_rx) = crossbeam_channel::unbounded();
-    watcher::spawn_watcher(config::devices_dir(), watch_tx)?;
-
     let (ipc_tx, ipc_rx) = crossbeam_channel::unbounded();
+    
+    watcher::spawn_watcher(watch_tx)?;    
     ipc::spawn_ipc_listener(ipc_tx)?;
 
     eprintln!("evmux daemon running.");
@@ -72,7 +72,7 @@ fn run_daemon() -> Result<()> {
                         eprintln!("Reload failed for {dir:?}: {e:#}");
                     }
                 }
-                WatchEvent::DeviceDirChanged => {
+                WatchEvent::DeviceDirChanged | WatchEvent::MacroChanged => {
                     if let Err(e) = daemon.reload() {
                         eprintln!("Full reload failed: {e:#}");
                     }
