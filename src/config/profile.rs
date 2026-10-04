@@ -50,12 +50,12 @@ pub(crate) fn profile_template(name: &str) -> String {
 # type = "block"
 # key = "KEY_SYSRQ"
 
-# Macro: trigger a sequence of actions on a keypress
+# Macro: runs a macro from evmux/macros for the specified key
 # [[rules]]
 # type = "macro"
 # from = "KEY_F1"
-# macro_actions = []
-"# //TODO: macro_actions
+# name = desktop
+"#
     )
 }
 
