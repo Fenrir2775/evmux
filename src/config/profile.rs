@@ -1,15 +1,30 @@
+use crate::config::macros::Macros;
 use crate::config::rule::Rule;
-use serde::{Deserialize, Serialize};
+use crate::config::serde::raw::RawProfile;
+use anyhow::Result;
 
 /// A profile describes the remapping rules for a specific [`InputDevice`].
-#[derive(Default, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub(crate) struct Profile {
-    /// The profiles name.
-    #[serde(skip)]
     pub(crate) name: String,
-    #[serde(default)]
     pub(crate) rules: Vec<Rule>,
+}
+
+impl Profile {
+    pub(crate) fn parse(name: &str, text: &str, macros: &Macros) -> Result<Self> {
+        let raw: RawProfile = toml::from_str(text)?;
+
+        let rules = raw
+            .rules
+            .into_iter()
+            .map(|r| Rule::resolve(r, macros))
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self {
+            name: name.into(),
+            rules,
+        })
+    }
 }
 
 pub(crate) fn profile_template(name: &str) -> String {
