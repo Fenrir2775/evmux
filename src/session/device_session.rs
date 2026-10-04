@@ -135,23 +135,23 @@ impl DeviceSession {
             anyhow::bail!("Profile '{name}' already exists");
         }
 
-        let content = match copy_from {
-            None => profile::profile_template(name),
-            Some(to_copy) => {
-                let source_profile = self.find_profile(to_copy)?;
-                let mut cloned = (*source_profile).clone();
-                cloned.name = name.to_owned();
-                toml::to_string_pretty(&cloned).map_err(|e| {
-                    anyhow::anyhow!("Failed to serialize profile '{to_copy}': {e:#}")
-                })?
-            }
-        };
+        let profile_path = self.handle.profile_path(name)?;
 
-        let path = self.handle.write_profile_content(name, &content)?;
+        match copy_from {
+            None => std::fs::write(&profile_path, profile::profile_template(&name))?,
+            Some(to_copy) => {
+                if !self.profiles.contains_key(name) {
+                    anyhow::bail!("Profile '{to_copy}' not found");
+                }
+
+                let source = self.handle.dir().join(to_copy);
+                std::fs::copy(&source, &profile_path)?;
+            }
+        }
 
         self.reload()?;
 
-        Ok(path)
+        Ok(profile_path)
     }
 
     fn remove_profile(&mut self, name: &str) -> Result<()> {
@@ -240,13 +240,17 @@ impl DeviceSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::macros::Macros;
     use crate::device::input_device::InputDevice;
+    use std::sync::RwLock;
     use tempfile::tempdir;
 
     fn test_session() -> DeviceSession {
         let tmp = tempdir().unwrap();
         let device = InputDevice::default();
-        let (handle, config, profiles) = DeviceHandle::load_for_test(tmp.path(), &device).unwrap();
+        let macros = Arc::new(RwLock::new(Macros::default()));
+        let (handle, config, profiles) =
+            DeviceHandle::load_for_test(tmp.path(), &device, macros).unwrap();
 
         DeviceSession::new(handle, config, profiles)
     }
