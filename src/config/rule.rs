@@ -3,7 +3,11 @@ use crate::config::serde::raw::RawRule;
 use crate::output::action::Action;
 use anyhow::{Result, anyhow};
 use evdev::KeyCode;
-use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+pub(crate) enum CompiledMacro {
+    Static(Arc<[Action]>),
+}
 
 /// Define the rules how an input event is handled.
 pub(crate) enum Rule {

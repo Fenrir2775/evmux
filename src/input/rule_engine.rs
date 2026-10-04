@@ -1,6 +1,5 @@
 use crate::config::profile::Profile;
-use crate::config::rule::Rule;
-use crate::input::macro_compiler;
+use crate::config::rule::{CompiledMacro, Rule};
 use crate::output::action::{Action, Actions};
 use evdev::{EventType, InputEvent, KeyCode};
 use smallvec::smallvec;
@@ -53,11 +52,10 @@ fn match_rule(rule: &Rule, key_event: InputKey) -> Option<Actions> {
 
         Rule::Block { key } if key_event.key == *key => Some(Actions::new()),
 
-        Rule::Macro {
-            from,
-            macro_actions,
-        } if key_event.key == *from => Some(if key_event.value == 1 {
-            macro_compiler::compile(macro_actions)
+        Rule::Macro { from, r#macro } if key_event.key == *from => Some(if key_event.value == 1 {
+            match r#macro {
+                CompiledMacro::Static(actions) => actions.iter().cloned().collect(),
+            }
         } else {
             Actions::new()
         }),
@@ -69,7 +67,8 @@ fn match_rule(rule: &Rule, key_event: InputKey) -> Option<Actions> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::macro_action::MacroAction;
+    use crate::config::macro_compiler;
+    use crate::config::macros::MacroAction;
     use evdev::KeyEvent;
 
     #[test]
@@ -215,7 +214,9 @@ mod tests {
     fn macros_triggered_key_pressed() {
         let rule = Rule::Macro {
             from: KeyCode::KEY_A,
-            macro_actions: vec![MacroAction::Click(KeyCode::KEY_B)],
+            r#macro: CompiledMacro::Static(macro_compiler::compile_to_arc(&[MacroAction::Click(
+                KeyCode::KEY_B,
+            )])),
         };
 
         for value in 0..=2 {
