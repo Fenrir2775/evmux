@@ -3,7 +3,7 @@ use crate::config::macro_compiler;
 use crate::output::action::Action;
 use anyhow::Result;
 use evdev::KeyCode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -74,7 +74,7 @@ impl FromStr for MacroAction {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct MacroFile {
     actions: Vec<MacroAction>,
 }
@@ -127,5 +127,26 @@ impl Macros {
 
     pub(crate) fn get(&self, name: &str) -> Option<Arc<[Action]>> {
         self.macros.get(name).cloned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_macro() {
+        let f = MacroFile {
+            actions: vec![
+                MacroAction::Click(KeyCode::KEY_A),
+                MacroAction::Click(KeyCode::KEY_B),
+                MacroAction::Delay(1000),
+                MacroAction::Click(KeyCode::KEY_C),
+            ]
+        };
+
+        let t = toml::to_string_pretty(&f).unwrap();
+
+        eprintln!("{t}\n");
     }
 }
