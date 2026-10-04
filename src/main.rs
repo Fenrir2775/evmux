@@ -55,6 +55,8 @@ fn run_daemon() -> Result<()> {
         bail!("daemon already running")
     }
 
+    config::ensure_config_dir()?;
+
     let mut daemon = Daemon::new()?;
     let (watch_tx, watch_rx) = crossbeam_channel::unbounded();
     let (ipc_tx, ipc_rx) = crossbeam_channel::unbounded();
