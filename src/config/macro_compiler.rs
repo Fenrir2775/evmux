@@ -1,11 +1,12 @@
-use crate::config::macro_action::MacroAction;
+use crate::config::macros::MacroAction;
 use crate::output::action::{Action, Actions};
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Compiles a list of [`MacroAction`]s into a [`Actions`] sequence.
 /// `Click` expands into a `Press`, a 5ms delay and a `Release`.
 /// Everything else maps one to one to its [`Action`] equivalent.
-pub(super) fn compile(actions: &[MacroAction]) -> Actions {
+pub(crate) fn compile(actions: &[MacroAction]) -> Actions {
     let mut sequence = Actions::new();
 
     for action in actions {
@@ -31,6 +32,10 @@ pub(super) fn compile(actions: &[MacroAction]) -> Actions {
     }
 
     sequence
+}
+
+pub(crate) fn compile_to_arc(actions: &[MacroAction]) -> Arc<[Action]> {
+    Arc::from(compile(actions).into_vec())
 }
 
 #[cfg(test)]

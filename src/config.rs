@@ -3,7 +3,8 @@ use std::path::PathBuf;
 
 pub(super) mod device_config;
 pub(super) mod device_handle;
-pub(super) mod macro_action;
+pub mod macro_compiler;
+pub(super) mod macros;
 pub(super) mod profile;
 pub(super) mod rule;
 mod serde;
