@@ -1,12 +1,15 @@
+use crate::config;
 use crate::config::device_config::DeviceConfig;
+use crate::config::macros::Macros;
 use crate::config::profile::Profile;
 use crate::device::input_device::InputDevice;
 use anyhow::{Result, anyhow};
 use std::path::{Path, PathBuf};
-use crate::config;
+use std::sync::{Arc, RwLock};
 
 pub(crate) struct DeviceHandle {
     dir: PathBuf,
+    macros: Arc<RwLock<Macros>>,
 }
 
 impl DeviceHandle {
@@ -14,18 +17,26 @@ impl DeviceHandle {
         &self.dir
     }
 
-    fn profile_path(&self, profile: &str) -> PathBuf {
-        self.dir.join(format!("{profile}.toml"))
+    pub(crate) fn profile_path(&self, name: &str) -> Result<PathBuf> {
+        validate_profile_name(name)?;
+
+        Ok(self.dir.join(format!("{name}.toml")))
     }
 
-    pub(crate) fn load(device: &InputDevice) -> Result<(Self, DeviceConfig, Vec<Profile>)> {
-        Self::load_in(&config::devices_dir(), device)
+    pub(crate) fn load(
+        device: &InputDevice,
+        macros: Arc<RwLock<Macros>>,
+    ) -> Result<(Self, DeviceConfig, Vec<Profile>)> {
+        Self::load_in(&config::devices_dir(), device, macros)
     }
 
-    fn load_in(root: &Path, device: &InputDevice) -> Result<(Self, DeviceConfig, Vec<Profile>)> {
-        let dir =
-            find_config_dir(root, device)?.unwrap_or_else(|| generate_dir_name(root, device));
-        let handle = Self { dir };
+    fn load_in(
+        root: &Path,
+        device: &InputDevice,
+        macros: Arc<RwLock<Macros>>,
+    ) -> Result<(Self, DeviceConfig, Vec<Profile>)> {
+        let dir = find_config_dir(root, device)?.unwrap_or_else(|| generate_dir_name(root, device));
+        let handle = Self { dir, macros };
         let config = load_or_init_device_config(device, &handle.dir)?;
         let profiles = handle.load_profiles()?;
 
@@ -36,8 +47,9 @@ impl DeviceHandle {
     pub(crate) fn load_for_test(
         root: &Path,
         device: &InputDevice,
+        macros: Arc<RwLock<Macros>>,
     ) -> Result<(Self, DeviceConfig, Vec<Profile>)> {
-        Self::load_in(root, device)
+        Self::load_in(root, device, macros)
     }
 
     pub(crate) fn reload_device_config(
@@ -50,29 +62,16 @@ impl DeviceHandle {
         Ok((config, profiles))
     }
 
-    pub(crate) fn write_profile_content(
-        &self,
-        profile_name: &str,
-        content: &str,
-    ) -> Result<PathBuf> {
-        validate_profile_name(profile_name)?;
-        std::fs::create_dir_all(&self.dir)?;
-
-        let path = self.profile_path(profile_name);
-        std::fs::write(&path, content)?;
-
-        Ok(path)
-    }
-
     pub(crate) fn delete_profile(&self, profile: &str) -> Result<()> {
-        validate_profile_name(profile)?;
-        std::fs::remove_file(self.profile_path(profile))?;
+        std::fs::remove_file(self.profile_path(profile)?)?;
 
         Ok(())
     }
 
     /// Loads every `*.toml` profile next to `device.toml` in `dir`.
     fn load_profiles(&self) -> Result<Vec<Profile>> {
+        // poisoning should be impossible
+        let macros = self.macros.read().unwrap();
         let mut profiles = vec![];
 
         for entry in std::fs::read_dir(&self.dir)? {
@@ -86,9 +85,8 @@ impl DeviceHandle {
             }
 
             let text = std::fs::read_to_string(&path)?;
-            let mut profile: Profile = toml::from_str(&text)?;
+            let profile = Profile::parse(stem, &text, &macros)?;
 
-            profile.name = stem.to_string();
             profiles.push(profile);
         }
 
@@ -213,6 +211,16 @@ mod tests {
         InputDevice::new_for_test(vendor_id, product_id, name)
     }
 
+    fn test_macros() -> Arc<RwLock<Macros>> {
+        Arc::new(RwLock::new(Macros::default()))
+    }
+
+    fn write_profile(handle: &DeviceHandle, name: &str, content: &str) -> PathBuf {
+        let path = handle.profile_path(name).unwrap();
+        std::fs::write(&path, content).unwrap();
+        path
+    }
+
     #[test]
     fn name_replace_unsafe_chars_with_underscores() {
         assert_eq!(normalize("Razer Naga Trinity"), "razer_naga_trinity")
@@ -251,7 +259,8 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let dev = device(0x5426, 0x103, "Razer Naga Trinity");
 
-        let (handle, config, profiles) = DeviceHandle::load_in(tmp.path(), &dev).unwrap();
+        let (handle, config, profiles) =
+            DeviceHandle::load_in(tmp.path(), &dev, test_macros()).unwrap();
 
         assert!(handle.dir().join("device.toml").exists());
         assert_eq!(config.default_profile, None);
@@ -268,12 +277,11 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let dev = device(0x5426, 0x103, "Razer Naga Trinity");
 
-        let (first_handle, ..) = DeviceHandle::load_in(tmp.path(), &dev).unwrap();
-        first_handle
-            .write_profile_content("default", "# empty profile\n")
-            .unwrap();
+        let (first_handle, ..) = DeviceHandle::load_in(tmp.path(), &dev, test_macros()).unwrap();
+        write_profile(&first_handle, "default", "# empty profile\n");
 
-        let (second_handle, _, profiles) = DeviceHandle::load_in(tmp.path(), &dev).unwrap();
+        let (second_handle, _, profiles) =
+            DeviceHandle::load_in(tmp.path(), &dev, test_macros()).unwrap();
 
         assert_eq!(first_handle.dir(), second_handle.dir());
         assert_eq!(profiles.len(), 1);
@@ -285,10 +293,12 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
 
         let old_name = device(0x5426, 0x103, "Old device name");
-        let (first_handle, ..) = DeviceHandle::load_in(tmp.path(), &old_name).unwrap();
+        let (first_handle, ..) =
+            DeviceHandle::load_in(tmp.path(), &old_name, test_macros()).unwrap();
 
         let new_name = device(0x5426, 0x103, "New device name");
-        let (second_handle, ..) = DeviceHandle::load_in(tmp.path(), &new_name).unwrap();
+        let (second_handle, ..) =
+            DeviceHandle::load_in(tmp.path(), &new_name, test_macros()).unwrap();
 
         assert_eq!(first_handle.dir(), second_handle.dir());
     }
@@ -297,12 +307,12 @@ mod tests {
     fn find_if_dir_name_changed() {
         let tmp = tempfile::tempdir().unwrap();
         let dev = device(0x5426, 0x103, "Razer Naga Trinity");
-        let (handle, ..) = DeviceHandle::load_in(tmp.path(), &dev).unwrap();
+        let (handle, ..) = DeviceHandle::load_in(tmp.path(), &dev, test_macros()).unwrap();
         let renamed = tmp.path().join("renamed");
 
         std::fs::rename(handle.dir(), &renamed).unwrap();
 
-        let (found_handle, ..) = DeviceHandle::load_in(tmp.path(), &dev).unwrap();
+        let (found_handle, ..) = DeviceHandle::load_in(tmp.path(), &dev, test_macros()).unwrap();
 
         assert_eq!(found_handle.dir(), renamed);
     }
@@ -311,10 +321,8 @@ mod tests {
     fn file_named_after_profile() {
         let tmp = tempfile::tempdir().unwrap();
         let dev = device(0x5426, 0x103, "Razer Naga Trinity");
-        let (handle, ..) = DeviceHandle::load_in(tmp.path(), &dev).unwrap();
-        let path = handle
-            .write_profile_content("gaming", "key = \"value\"\n")
-            .unwrap();
+        let (handle, ..) = DeviceHandle::load_in(tmp.path(), &dev, test_macros()).unwrap();
+        let path = write_profile(&handle, "gaming", "key = \"value\"\n");
 
         assert_eq!(path, handle.dir().join("gaming.toml"));
         assert_eq!(std::fs::read_to_string(path).unwrap(), "key = \"value\"\n");
@@ -324,9 +332,9 @@ mod tests {
     fn remove_file() {
         let tmp = tempfile::tempdir().unwrap();
         let dev = device(0x5426, 0x103, "Razer Naga Trinity");
-        let (handle, ..) = DeviceHandle::load_in(tmp.path(), &dev).unwrap();
+        let (handle, ..) = DeviceHandle::load_in(tmp.path(), &dev, test_macros()).unwrap();
 
-        handle.write_profile_content("temp", "").unwrap();
+        write_profile(&handle, "temp", "");
         assert!(handle.dir().join("temp.toml").exists());
 
         handle.delete_profile("temp").unwrap();

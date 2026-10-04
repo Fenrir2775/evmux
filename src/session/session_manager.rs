@@ -1,4 +1,5 @@
 use crate::config::device_handle::DeviceHandle;
+use crate::config::macros::Macros;
 use crate::device::input_device;
 use crate::device::input_device::InputDevice;
 use crate::input::record;
@@ -9,11 +10,13 @@ use anyhow::{Result, anyhow};
 use evdev::KeyCode;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 
 /// Controls all device sessions.
 pub(crate) struct SessionManager {
     sessions: HashMap<InputDevice, DeviceSession>,
     output_runtime: OutputRuntime,
+    macros: Arc<RwLock<Macros>>,
 }
 
 impl SessionManager {
@@ -21,11 +24,12 @@ impl SessionManager {
     ///
     /// Bad configs are reported and skipped, because a broken config shouldn't prevent any other from working.
     pub(crate) fn new() -> Result<Self> {
+        let macros = Arc::new(RwLock::new(Macros::load()?));
         let mut sessions = HashMap::new();
         let output_runtime = OutputRuntime::new()?;
 
         for device in input_device::enumerate_devices() {
-            match DeviceHandle::load(&device) {
+            match DeviceHandle::load(&device, macros.clone()) {
                 Ok((handle, config, profiles)) => {
                     sessions.insert(device, DeviceSession::new(handle, config, profiles));
                 }
@@ -36,6 +40,7 @@ impl SessionManager {
         Ok(Self {
             sessions,
             output_runtime,
+            macros,
         })
     }
 
@@ -68,6 +73,13 @@ impl SessionManager {
 
     /// Reload configs for all devices and restart them if they were running.
     pub(crate) fn reload(&mut self) -> Result<()> {
+        let macros = Macros::load()?;
+
+        match self.macros.write() {
+            Ok(mut lock) => *lock = macros,
+            Err(e) => anyhow::bail!("macros lock poisoned: {e:#}"),
+        }
+
         let devices = input_device::enumerate_devices();
 
         for device in self.sessions.keys().cloned().collect::<Vec<_>>() {
@@ -86,7 +98,7 @@ impl SessionManager {
                     eprintln!("Failed to reload '{}': {e:#}", device.name())
                 }
             } else {
-                match DeviceHandle::load(&device) {
+                match DeviceHandle::load(&device, self.macros.clone()) {
                     Ok((handle, config, profiles)) => {
                         self.sessions
                             .insert(device, DeviceSession::new(handle, config, profiles));
@@ -104,7 +116,7 @@ impl SessionManager {
         let device = self
             .sessions
             .iter()
-            .find(|(_, s)| s.config_dir().eq(path))
+            .find(|(_, s)| s.device_dir().eq(path))
             .map(|(d, _)| d.clone());
 
         if let Some(device) = device {
@@ -115,7 +127,7 @@ impl SessionManager {
     }
 
     /// Creates a new profile for the device and returns the path of the created file.
-    /// 
+    ///
     /// This bypasses `SessionCommand` because it is just a filesystem operation that
     /// doesn't touch the sessions state.
     pub(crate) fn add_profile(
