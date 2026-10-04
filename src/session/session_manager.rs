@@ -116,7 +116,7 @@ impl SessionManager {
         let device = self
             .sessions
             .iter()
-            .find(|(_, s)| s.device_dir().eq(path))
+            .find(|(_, s)| s.device_dir() == path)
             .map(|(d, _)| d.clone());
 
         if let Some(device) = device {
