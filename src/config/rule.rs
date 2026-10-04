@@ -1,35 +1,43 @@
-use crate::config::macro_action::MacroAction;
-use crate::config::serde::*;
+use crate::config::macros::Macros;
+use crate::config::serde::raw::RawRule;
+use crate::output::action::Action;
+use anyhow::{Result, anyhow};
 use evdev::KeyCode;
 use serde::{Deserialize, Serialize};
 
 /// Define the rules how an input event is handled.
-#[derive(Deserialize, Serialize, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum Rule {
     /// Maps a single key to another single key.
-    KeyToSingle {
-        #[serde(with = "keycode_serde")]
-        from: KeyCode,
-        #[serde(with = "keycode_serde")]
-        to: KeyCode,
-    },
+    KeyToSingle { from: KeyCode, to: KeyCode },
     /// Maps a single key to a sequence of keys.
-    KeyToMultiple {
-        #[serde(with = "keycode_serde")]
-        from: KeyCode,
-        #[serde(with = "keycode_vec_serde")]
-        to: Vec<KeyCode>,
-    },
+    KeyToMultiple { from: KeyCode, to: Vec<KeyCode> },
     /// Suppress the specified key.
-    Block {
-        #[serde(with = "keycode_serde")]
-        key: KeyCode,
-    },
+    Block { key: KeyCode },
     /// Maps a key to a macro.
     Macro {
-        #[serde(with = "keycode_serde")]
         from: KeyCode,
-        macro_actions: Vec<MacroAction>,
+        r#macro: CompiledMacro,
     },
+}
+
+impl Rule {
+    pub(crate) fn resolve(raw_rule: RawRule, macros: &Macros) -> Result<Self> {
+        let rule = match raw_rule {
+            RawRule::KeyToSingle { from, to } => Rule::KeyToSingle { from, to },
+            RawRule::KeyToMultiple { from, to } => Rule::KeyToMultiple { from, to },
+            RawRule::Block { key } => Rule::Block { key },
+            RawRule::Macro { from, name } => {
+                let actions = macros
+                    .get(&name)
+                    .ok_or_else(|| anyhow!("macro '{name}' not found"))?;
+
+                Rule::Macro {
+                    from,
+                    r#macro: CompiledMacro::Static(actions),
+                }
+            }
+        };
+
+        Ok(rule)
+    }
 }
