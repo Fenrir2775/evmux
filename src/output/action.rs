@@ -15,7 +15,7 @@ impl From<Action> for Actions {
 }
 
 /// A single output action.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) enum Action {
     Emit(Events),
     Delay(Duration),
