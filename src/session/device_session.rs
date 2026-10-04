@@ -43,7 +43,7 @@ impl DeviceSession {
         &self.config.device
     }
 
-    pub(crate) fn config_dir(&self) -> &Path {
+    pub(crate) fn device_dir(&self) -> &Path {
         self.handle.dir()
     }
 
