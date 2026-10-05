@@ -50,7 +50,7 @@ pub(crate) fn profile_template(name: &str) -> String {
 # type = "block"
 # key = "KEY_SYSRQ"
 
-# Macro: runs a macro from evmux/macros for the specified key
+# Macro: runs a macro from .config/evmux/macros for the specified key
 # [[rules]]
 # type = "macro"
 # from = "KEY_F1"

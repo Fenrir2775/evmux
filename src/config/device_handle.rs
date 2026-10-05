@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 pub(crate) struct DeviceHandle {
+    /// The config directory of the device this handle belongs to.
     dir: PathBuf,
     macros: Arc<RwLock<Macros>>,
 }
@@ -103,6 +104,7 @@ fn find_config_dir(root: &Path, device: &InputDevice) -> Result<Option<PathBuf>>
 
     for entry in entries {
         let dir = entry?.path();
+
         if !dir.is_dir() {
             continue;
         }

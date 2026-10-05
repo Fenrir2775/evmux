@@ -20,7 +20,7 @@ pub(crate) struct SessionManager {
 }
 
 impl SessionManager {
-    /// Creates a new session for every device and the `OutputRuntime`.
+    /// Creates a new session for every device, the `OutputRuntime` and load all macros from [`macros_dir`](crate::config::macros_dir).
     ///
     /// Bad configs are reported and skipped, because a broken config shouldn't prevent any other from working.
     pub(crate) fn new() -> Result<Self> {
@@ -128,8 +128,7 @@ impl SessionManager {
 
     /// Creates a new profile for the device and returns the path of the created file.
     ///
-    /// This bypasses `SessionCommand` because it is just a filesystem operation that
-    /// doesn't touch the sessions state.
+    /// This bypasses `SessionCommand` because it returns a PathBuf to the created file.
     pub(crate) fn add_profile(
         &mut self,
         device: &str,
