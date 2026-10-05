@@ -154,7 +154,7 @@ impl Watcher {
         }
 
         Some(match watch.kind {
-            ContentKind::Device => WatchEvent::DeviceConfigChanged(watch.path.clone()),
+            ContentKind::Device => WatchEvent::DeviceConfigChanged(watch.path.join(file_name)),
             ContentKind::Macro => WatchEvent::MacroChanged,
         })
     }
@@ -272,7 +272,7 @@ mod tests {
         std::fs::write(test_toml, "test").unwrap();
 
         let config_event = rx.recv_timeout(Duration::from_secs(1)).unwrap();
-        assert!(matches!(config_event, WatchEvent::DeviceConfigChanged(_)));
+        assert!(matches!(&config_event, WatchEvent::DeviceConfigChanged(_)));
 
         unsafe { std::env::remove_var(config::CONFIG_DIR) };
     }

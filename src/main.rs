@@ -10,7 +10,7 @@ use crate::config::watcher::WatchEvent;
 use crate::daemon::daemon::Daemon;
 use crate::daemon::ipc::{Request, Response};
 use crate::daemon::{cli, ipc};
-use anyhow::{Result, bail, ensure};
+use anyhow::{Result, anyhow, bail, ensure};
 use crossbeam_channel::select;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
@@ -60,8 +60,8 @@ fn run_daemon() -> Result<()> {
     let mut daemon = Daemon::new()?;
     let (watch_tx, watch_rx) = crossbeam_channel::unbounded();
     let (ipc_tx, ipc_rx) = crossbeam_channel::unbounded();
-    
-    watcher::spawn_watcher(watch_tx)?;    
+
+    watcher::spawn_watcher(watch_tx)?;
     ipc::spawn_ipc_listener(ipc_tx)?;
 
     eprintln!("evmux daemon running.");
@@ -69,9 +69,9 @@ fn run_daemon() -> Result<()> {
     loop {
         select! {
             recv(watch_rx) -> event => match event? {
-                WatchEvent::DeviceConfigChanged(dir) => {
-                    if let Err(e) = daemon.reload_by_path(&dir) {
-                        eprintln!("Reload failed for {dir:?}: {e:#}");
+                WatchEvent::DeviceConfigChanged(file_path) => {
+                    if let Err(e) = daemon.reload_by_path(file_path.parent().ok_or_else(|| anyhow!("Invalid path: '{:?}'", file_path))?) {
+                        eprintln!("Reload failed for {file_path:?}: {e:#}");
                     }
                 }
                 WatchEvent::DeviceDirChanged | WatchEvent::MacroChanged => {
