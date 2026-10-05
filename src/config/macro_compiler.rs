@@ -26,7 +26,7 @@ pub(crate) fn compile(actions: &[MacroAction]) -> Actions {
                 sequence.push(Action::relative_move(*x, *y));
             }
             MacroAction::Delay(duration) => {
-                sequence.push(Action::Delay(Duration::from_millis(*duration)));
+                sequence.push(Action::delay_from_millis(*duration));
             }
         }
     }
