@@ -1,7 +1,7 @@
-use crate::config::macros::MacroAction;
 use crate::output::action::{Action, Actions};
 use std::sync::Arc;
 use std::time::Duration;
+use crate::config::serde::raw::MacroAction;
 
 /// Compiles a list of [`MacroAction`]s into a [`Actions`] sequence.
 /// `Click` expands into a `Press`, a 5ms delay and a `Release`.

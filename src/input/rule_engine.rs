@@ -67,9 +67,8 @@ fn match_rule(rule: &Rule, key_event: InputKey) -> Option<Actions> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::macro_compiler;
-    use crate::config::macros::MacroAction;
     use evdev::KeyEvent;
+    use std::sync::Arc;
 
     #[test]
     fn key_to_single() {
@@ -214,9 +213,11 @@ mod tests {
     fn macros_triggered_key_pressed() {
         let rule = Rule::Macro {
             from: KeyCode::KEY_A,
-            r#macro: CompiledMacro::Static(macro_compiler::compile_to_arc(&[MacroAction::Click(
-                KeyCode::KEY_B,
-            )])),
+            r#macro: CompiledMacro::Static(Arc::from([
+                Action::key(KeyCode::KEY_B, 1),
+                Action::delay_from_millis(5),
+                Action::key(KeyCode::KEY_B, 0),
+            ])),
         };
 
         for value in 0..=2 {
