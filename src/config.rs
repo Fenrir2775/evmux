@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(super) mod device_config;
 pub(super) mod device_handle;
@@ -21,8 +21,7 @@ fn config_dir() -> PathBuf {
         .unwrap_or_else(|_| {
             dirs::config_dir()
                 .unwrap_or_else(|| PathBuf::from(".config"))
-                .join("evmux")
-        })
+        }).join("evmux")
 }
 
 /// Configuration directory for every device.
