@@ -58,6 +58,8 @@ sudo udevadm trigger
 Description=evmux input remapping daemon
 
 [Service]
+# Optional path to custom config directory
+# Environment="EVMUX_CONFIG_DIR=/user/defined/path"
 ExecStart=/usr/local/bin/evmux
 Restart=on-failure
 
@@ -106,7 +108,7 @@ no device is selected automatically.
 
 ## Configuration
 
-Configuration files are stored in:
+Configuration files are stored by default in:
 
 ```
 ~/.config/evmux/
@@ -123,6 +125,8 @@ Device-specific configuration is stored below the `devices` directory:
     │   └── ...
     └── ...
 ```
+
+This path can be changed by add the environment variable **"EVMUX_CONFIG_DIR"** to the service file.
 
 ## Planned:
 
