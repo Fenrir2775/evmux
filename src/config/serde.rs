@@ -70,7 +70,7 @@ pub(super) mod raw {
     impl FromStr for MacroAction {
         type Err = String;
 
-        fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
             let (name, args) = s
                 .split_once('(')
                 .ok_or_else(|| format!("invalid macro action '{s}'"))?;

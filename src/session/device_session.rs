@@ -138,7 +138,7 @@ impl DeviceSession {
         let profile_path = self.handle.profile_path(name)?;
 
         match copy_from {
-            None => std::fs::write(&profile_path, profile::profile_template(&name))?,
+            None => std::fs::write(&profile_path, profile::profile_template(name))?,
             Some(to_copy) => {
                 if !self.profiles.contains_key(name) {
                     anyhow::bail!("Profile '{to_copy}' not found");
