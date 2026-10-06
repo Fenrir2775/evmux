@@ -1,9 +1,9 @@
 use anyhow::Result;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub(super) mod device_config;
 pub(super) mod device_handle;
-pub mod macro_compiler;
+pub(super) mod macro_compiler;
 pub(super) mod macros;
 pub(super) mod profile;
 pub(super) mod rule;
