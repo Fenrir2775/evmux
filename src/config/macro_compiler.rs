@@ -22,8 +22,8 @@ pub(crate) fn compile(actions: &[MacroAction]) -> Actions {
                 sequence.push(Action::Delay(Duration::from_millis(5)));
                 sequence.push(Action::key(*key, 0));
             }
-            MacroAction::MoveRelative { x, y } => {
-                sequence.push(Action::relative_move(*x, *y));
+            MacroAction::MoveRelative { axis, value } => {
+                sequence.push(Action::relative_axis(*axis, *value));
             }
             MacroAction::Delay(duration) => {
                 sequence.push(Action::delay_from_millis(*duration));
@@ -41,7 +41,7 @@ pub(crate) fn compile_to_arc(actions: &[MacroAction]) -> Arc<[Action]> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use evdev::KeyCode;
+    use evdev::{KeyCode, RelativeAxisCode};
     use smallvec::smallvec;
 
     #[test]
@@ -76,9 +76,15 @@ mod test {
 
     #[test]
     fn move_relative() {
-        let macro_actions = vec![MacroAction::MoveRelative { x: 100, y: 100 }];
+        let macro_actions = vec![
+            MacroAction::MoveRelative { axis: RelativeAxisCode::REL_X, value: 100 },
+            MacroAction::MoveRelative { axis: RelativeAxisCode::REL_Y, value: 100 },
+        ];
         let result = compile(&macro_actions);
-        let actions: Actions = smallvec![Action::relative_move(100, 100)];
+        let actions: Actions = smallvec![
+            Action::relative_axis(RelativeAxisCode::REL_X, 100),
+            Action::relative_axis(RelativeAxisCode::REL_Y, 100),
+        ];
 
         assert_eq!(result, actions);
     }

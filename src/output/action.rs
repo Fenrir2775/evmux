@@ -41,13 +41,9 @@ impl Action {
         )
     }
 
-    /// Creates a relative axis event in order:
-    /// X, Y.
-    pub(crate) fn relative_move(x: i32, y: i32) -> Self {
-        Self::Emit(smallvec![
-            *RelativeAxisEvent::new(RelativeAxisCode::REL_X, x),
-            *RelativeAxisEvent::new(RelativeAxisCode::REL_Y, y),
-        ])
+    /// Creates a relative axis event.
+    pub(crate) fn relative_axis(axis: RelativeAxisCode, value: i32) -> Self {
+        Self::event(*RelativeAxisEvent::new(axis, value))
     }
 
     /// Wrapper for Action::Delay(Duration::from_millis()).
