@@ -62,6 +62,11 @@ impl Macros {
     pub(crate) fn get(&self, name: &str) -> Option<Arc<[Action]>> {
         self.macros.get(name).cloned()
     }
+
+    #[cfg(test)]
+    pub(crate) fn insert_for_test(&mut self, name: &str, actions: Arc<[Action]>) {
+        self.macros.insert(name.to_string(), actions);
+    }
 }
 
 #[cfg(test)]
