@@ -42,8 +42,11 @@ pub(crate) fn profile_template(name: &str) -> String {
 # Remap a key to a sequence of keys
 # [[rules]]
 # type = "key_to_multiple"
-# from = "KEY_A"
-# to = "[KEY_LEFTCTRL, KEY_C]"
+# from = "KEY_F1"
+# to = [
+#     "KEY_LEFTCTRL",
+#     "KEY_C",
+# ]
 
 # Suppress a key
 # [[rules]]
@@ -55,6 +58,24 @@ pub(crate) fn profile_template(name: &str) -> String {
 # type = "macro"
 # from = "KEY_F1"
 # name = desktop
+
+# Invert an axis
+[[rules]]
+type = "invert"
+axis = "REL_X"
+
+# Swap two axes
+[[rules]]
+type = "swap"
+a = "REL_X"
+b = "REL_Y"
+
+# Scale a axis
+[[rules]]
+type = "scale"
+axis = "REL_Y"
+factor = 1.25
+
 "#
     )
 }

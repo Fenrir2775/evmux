@@ -1,5 +1,5 @@
 use crate::config::macros::Macros;
-use crate::config::serde::raw::{RawKeyRule, RawRelativeAxisRule, RawRule};
+use crate::config::serde::raw::RawRule;
 use crate::output::action::Action;
 use anyhow::{Result, anyhow};
 use evdev::{KeyCode, RelativeAxisCode};
@@ -49,15 +49,14 @@ pub(crate) enum RelativeAxisRule {
 impl Rule {
     pub(crate) fn resolve(raw_rule: RawRule, macros: &Macros) -> Result<Self> {
         Ok(match raw_rule {
-            RawRule::Key(key_rule) => match key_rule {
-                RawKeyRule::KeyToSingle { from, to } => {
+            RawRule::KeyToSingle { from, to } => {
                     Self::Key(KeyRule::KeyToSingle { from, to })
                 }
-                RawKeyRule::KeyToMultiple { from, to } => {
+                RawRule::KeyToMultiple { from, to } => {
                     Self::Key(KeyRule::KeyToMultiple { from, to })
                 }
-                RawKeyRule::Block { key } => Self::Key(KeyRule::Block { key }),
-                RawKeyRule::Macro { from, name } => {
+                RawRule::Block { key } => Self::Key(KeyRule::Block { key }),
+                RawRule::Macro { from, name } => {
                     let actions = macros
                         .get(&name)
                         .ok_or_else(|| anyhow!("macro '{name}' not found"))?;
@@ -67,15 +66,12 @@ impl Rule {
                         r#macro: CompiledMacro::Static(actions),
                     })
                 }
-            },
-            RawRule::RelativeAxis(axis_rule) => match axis_rule {
-                RawRelativeAxisRule::Invert(axis) => {
-                    Self::RelativeAxis(RelativeAxisRule::Invert(axis))
-                }
-                RawRelativeAxisRule::Swap { a, b } => {
+            RawRule::Invert { axis } =>
+                    Self::RelativeAxis(RelativeAxisRule::Invert(axis)),
+                RawRule::Swap { a, b } => {
                     Self::RelativeAxis(RelativeAxisRule::Swap { a, b })
                 }
-                RawRelativeAxisRule::Scale { axis, factor } => {
+                RawRule::Scale { axis, factor } => {
                     if factor <= 0.0 || !factor.is_finite() {
                         anyhow::bail!(
                             "invalid scale factor {factor} for axis {axis:?}: instead of negative scaling, use `invert`"
@@ -88,8 +84,7 @@ impl Rule {
                         remain: AtomicU32::new(0),
                     })
                 }
-            },
-        })
+            })
     }
 }
 
@@ -107,10 +102,10 @@ mod tests {
 
     #[test]
     fn resolve_key_to_single() {
-        let raw = RawRule::Key(RawKeyRule::KeyToSingle {
+        let raw = RawRule::KeyToSingle {
             from: KeyCode::KEY_A,
             to: KeyCode::KEY_B,
-        });
+        };
 
         let rule = Rule::resolve(raw, &Macros::default()).unwrap();
 
@@ -123,10 +118,10 @@ mod tests {
 
     #[test]
     fn resolve_key_to_multiple() {
-        let raw = RawRule::Key(RawKeyRule::KeyToMultiple {
+        let raw = RawRule::KeyToMultiple {
             from: KeyCode::KEY_A,
             to: vec![KeyCode::KEY_LEFTCTRL, KeyCode::KEY_C],
-        });
+        };
 
         let rule = Rule::resolve(raw, &Macros::default()).unwrap();
 
@@ -139,7 +134,7 @@ mod tests {
 
     #[test]
     fn resolve_block() {
-        let raw = RawRule::Key(RawKeyRule::Block { key: KeyCode::KEY_A });
+        let raw = RawRule::Block { key: KeyCode::KEY_A };
 
         let rule = Rule::resolve(raw, &Macros::default()).unwrap();
 
@@ -149,10 +144,10 @@ mod tests {
     #[test]
     fn resolve_macro() {
         let macros = macros_with("combo", &[MacroAction::Press(KeyCode::KEY_B)]);
-        let raw = RawRule::Key(RawKeyRule::Macro {
+        let raw = RawRule::Macro {
             from: KeyCode::KEY_A,
             name: "combo".into(),
-        });
+        };
 
         let rule = Rule::resolve(raw, &macros).unwrap();
 
@@ -165,10 +160,10 @@ mod tests {
 
     #[test]
     fn reject_macro_when_missing() {
-        let raw = RawRule::Key(RawKeyRule::Macro {
+        let raw = RawRule::Macro {
             from: KeyCode::KEY_A,
             name: "missing".into(),
-        });
+        };
 
         let result = Rule::resolve(raw, &Macros::default());
 
@@ -177,7 +172,7 @@ mod tests {
 
     #[test]
     fn resolve_invert() {
-        let raw = RawRule::RelativeAxis(RawRelativeAxisRule::Invert(RelativeAxisCode::REL_X));
+        let raw = RawRule::Invert { axis: RelativeAxisCode::REL_X };
 
         let rule = Rule::resolve(raw, &Macros::default()).unwrap();
 
@@ -189,10 +184,10 @@ mod tests {
 
     #[test]
     fn resolve_swap() {
-        let raw = RawRule::RelativeAxis(RawRelativeAxisRule::Swap {
+        let raw = RawRule::Swap {
             a: RelativeAxisCode::REL_X,
             b: RelativeAxisCode::REL_Y,
-        });
+        };
 
         let rule = Rule::resolve(raw, &Macros::default()).unwrap();
 
@@ -205,10 +200,10 @@ mod tests {
 
     #[test]
     fn resolve_scale_with_valid_factor() {
-        let raw = RawRule::RelativeAxis(RawRelativeAxisRule::Scale {
+        let raw = RawRule::Scale {
             axis: RelativeAxisCode::REL_X,
             factor: 0.5,
-        });
+        };
 
         let rule = Rule::resolve(raw, &Macros::default()).unwrap();
 
@@ -221,20 +216,20 @@ mod tests {
 
     #[test]
     fn reject_zero_factor() {
-        let raw = RawRule::RelativeAxis(RawRelativeAxisRule::Scale {
+        let raw = RawRule::Scale {
             axis: RelativeAxisCode::REL_X,
             factor: 0.0,
-        });
+        };
 
         assert!(Rule::resolve(raw, &Macros::default()).is_err());
     }
 
     #[test]
     fn reject_negative_factor() {
-        let raw = RawRule::RelativeAxis(RawRelativeAxisRule::Scale {
+        let raw = RawRule::Scale {
             axis: RelativeAxisCode::REL_X,
             factor: -0.5,
-        });
+        };
 
         assert!(Rule::resolve(raw, &Macros::default()).is_err());
     }

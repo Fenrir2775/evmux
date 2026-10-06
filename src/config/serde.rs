@@ -16,13 +16,6 @@ pub(super) mod raw {
     #[derive(Serialize, Deserialize)]
     #[serde(tag = "type", rename_all = "snake_case")]
     pub(crate) enum RawRule {
-        Key(RawKeyRule),
-        RelativeAxis(RawRelativeAxisRule),
-    }
-
-    #[derive(Serialize, Deserialize)]
-    #[serde(tag = "type", rename_all = "snake_case")]
-    pub(crate) enum RawKeyRule {
         KeyToSingle {
             #[serde(with = "keycode_serde")]
             from: KeyCode,
@@ -44,13 +37,10 @@ pub(super) mod raw {
             from: KeyCode,
             name: String,
         },
-    }
-
-    #[derive(Serialize, Deserialize)]
-    #[serde(tag = "type", rename_all = "snake_case")]
-    pub(crate) enum RawRelativeAxisRule {
-        #[serde(with = "relative_axis_serde")]
-        Invert(RelativeAxisCode),
+        Invert {
+            #[serde(with = "relative_axis_serde")]
+            axis: RelativeAxisCode
+        },
         Swap {
             #[serde(with = "relative_axis_serde")]
             a: RelativeAxisCode,
@@ -84,7 +74,9 @@ pub(super) mod raw {
                 MacroAction::Press(key) => write!(f, "press({key:?})"),
                 MacroAction::Release(key) => write!(f, "release({key:?})"),
                 MacroAction::Click(key) => write!(f, "click({key:?})"),
-                MacroAction::MoveRelative { axis, value } => write!(f, "move_relative({axis:?}, {value:?})"),
+                MacroAction::MoveRelative { axis, value } => {
+                    write!(f, "move_relative({axis:?}, {value:?})")
+                }
                 MacroAction::Delay(d) => write!(f, "delay({d})"),
             }
         }
@@ -113,8 +105,14 @@ pub(super) mod raw {
                         .split_once(',')
                         .ok_or_else(|| format!("invalid move relative args '{args}'"))?;
                     Ok(MacroAction::MoveRelative {
-                        axis: axis.trim().parse().map_err(|_| format!("invalid axis: '{axis}'"))?,
-                        value: value.trim().parse().map_err(|_| format!("invalid value: '{value}'"))?,
+                        axis: axis
+                            .trim()
+                            .parse()
+                            .map_err(|_| format!("invalid axis: '{axis}'"))?,
+                        value: value
+                            .trim()
+                            .parse()
+                            .map_err(|_| format!("invalid value: '{value}'"))?,
                     })
                 }
                 "delay" => Ok(MacroAction::Delay(
