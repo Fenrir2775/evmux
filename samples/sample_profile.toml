@@ -1,0 +1,46 @@
+# Profile: {name}
+# Each Rule maps an input event to an output action.
+# An empty or missing rules list means passthrough.
+
+# Remap a single key to another
+[[rules]]
+type = "key_to_single"
+from = "KEY_CAPSLOCK"
+to = "KEY_LEFTCTRL"
+
+# Remap a key to a sequence of keys
+[[rules]]
+type = "key_to_multiple"
+from = "KEY_F1"
+to = [
+    "KEY_LEFTCTRL",
+    "KEY_C",
+]
+
+# Suppress a key
+[[rules]]
+type = "block"
+key = "KEY_SYSRQ"
+
+# Macro: runs a macro from .config/evmux/macros for the specified key
+[[rules]]
+type = "macro"
+from = "KEY_F1"
+name = desktop
+
+# Invert an axis
+[[rules]]
+type = "invert"
+axis = "REL_X"
+
+# Swap two axes
+[[rules]]
+type = "swap"
+a = "REL_X"
+b = "REL_Y"
+
+# Scale an axis
+[[rules]]
+type = "scale"
+axis = "REL_Y"
+factor = 1.25

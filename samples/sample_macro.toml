@@ -1,0 +1,10 @@
+actions = [
+    "move_relative(REL_Y, 100)",
+    "click(BTN_LEFT)",
+    "click(BTN_LEFT)",
+    "press(KEY_LEFTCTRL)",
+    "press(KEY_C)",
+    "delay(50)",
+    "release(KEY_C)",
+    "release(KEY_LEFTCTRL)",
+]
