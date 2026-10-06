@@ -31,11 +31,14 @@ pub(crate) enum KeyRule {
 }
 
 pub(crate) enum RelativeAxisRule {
+    /// Invert a relative axis.
     Invert(RelativeAxisCode),
+    /// Swap an axis with another.
     Swap {
         a: RelativeAxisCode,
         b: RelativeAxisCode,
     },
+    /// Scale an axis by the specified `factor`.
     Scale {
         axis: RelativeAxisCode,
         factor: f32,

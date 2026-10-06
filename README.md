@@ -17,6 +17,7 @@ whichever you prefer.
 - Key to macro
 - Suppressing keys
 - Recording key input from a device, to find out which key you want to remap
+- Invert/Swap/Scale relative axes
 
 ## Installation
 
@@ -114,15 +115,20 @@ Configuration files are stored by default in:
 ~/.config/evmux/
 ```
 
-Device-specific configuration is stored below the `devices` directory:
+Device-specific configuration is stored below the `devices` directory.</br>
+Macros are stored below the `macros` directory and can be referenced
+by every device by their filename.
 
 ```
 ~/.config/evmux/
-└── devices/
-    ├── <device>/
-    │   ├── device.toml
-    │   ├── <profile>.toml
-    │   └── ...
+├── devices/
+│   ├── <device>/
+│   │   ├── device.toml
+│   │   ├── <profile>.toml
+│   │   └── ...
+│   └── ...
+└── macros/
+    ├── <macro>.toml
     └── ...
 ```
 
