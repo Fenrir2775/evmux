@@ -8,17 +8,35 @@ pub(crate) type Actions = SmallVec<[Action; 12]>;
 /// A batch of events.
 type Events = SmallVec<[InputEvent; 4]>;
 
+/// A single output action.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) enum Action {
+    Emit(Events),
+    Delay(Duration),
+}
+
 impl From<Action> for Actions {
     fn from(action: Action) -> Self {
         smallvec![action]
     }
 }
 
-/// A single output action.
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub(crate) enum Action {
-    Emit(Events),
-    Delay(Duration),
+#[derive(Debug, PartialEq)]
+pub(crate) struct ActionBatch {
+    pub(crate) actions: Actions,
+    pub(crate) blocking: bool,
+}
+
+impl From<Action> for ActionBatch {
+    fn from(action: Action) -> Self {
+        Self { actions: Actions::from(action), blocking: false }
+    }
+}
+
+impl From<Actions> for ActionBatch {
+    fn from(actions: Actions) -> Self {
+        Self { actions, blocking: false }
+    }
 }
 
 impl Action {

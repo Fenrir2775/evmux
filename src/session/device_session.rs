@@ -4,7 +4,7 @@ use crate::config::profile;
 use crate::config::profile::Profile;
 use crate::device::input_device::InputDevice;
 use crate::input::input_runtime::InputRuntime;
-use crate::output::action::Actions;
+use crate::output::action::ActionBatch;
 use crate::session::session_command::SessionCommand;
 use anyhow::Result;
 use crossbeam_channel::Sender;
@@ -59,7 +59,7 @@ impl DeviceSession {
     pub(crate) fn send_command(
         &mut self,
         cmd: SessionCommand,
-        output_tx: Sender<Actions>,
+        output_tx: Sender<(Arc<InputDevice>, ActionBatch)>,
     ) -> Result<()> {
         match cmd {
             SessionCommand::Start { profile } => self.start(output_tx, profile.as_deref()),
@@ -89,7 +89,7 @@ impl DeviceSession {
         }
     }
 
-    fn start(&mut self, output_tx: Sender<Actions>, profile: Option<&str>) -> Result<()> {
+    fn start(&mut self, output_tx: Sender<(Arc<InputDevice>, ActionBatch)>, profile: Option<&str>) -> Result<()> {
         if self.is_running() {
             return Ok(());
         }
@@ -116,7 +116,7 @@ impl DeviceSession {
         }
     }
 
-    fn restart(&mut self, output_tx: Sender<Actions>, profile: Option<&str>) -> Result<()> {
+    fn restart(&mut self, output_tx: Sender<(Arc<InputDevice>, ActionBatch)>, profile: Option<&str>) -> Result<()> {
         if self.is_running() {
             self.stop();
             self.start(output_tx, profile)?

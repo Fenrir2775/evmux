@@ -1,31 +1,30 @@
 use crate::config::profile::Profile;
 use crate::config::rule::{CompiledMacro, KeyRule, RelativeAxisRule, Rule};
-use crate::output::action::{Action, Actions};
+use crate::output::action::{Action, ActionBatch, Actions};
 use evdev::{EventType, InputEvent, KeyCode, RelativeAxisCode};
-use smallvec::smallvec;
 use std::sync::atomic::Ordering;
 
 /// Evaluates a single input event against the active profiles rules.
 ///
 /// Non-key events and unmatched events pass through unchanged.
-pub(super) fn evaluate(event: InputEvent, profile: &Profile) -> Actions {
+pub(super) fn evaluate(event: InputEvent, profile: &Profile) -> ActionBatch {
     match event.event_type() {
         EventType::KEY | EventType::RELATIVE => {
             for rule in &profile.rules {
-                if let Some(actions) = match_rule(rule, event) {
-                    return actions;
+                if let Some(action_batch) = match_rule(rule, event) {
+                    return action_batch;
                 }
             }
         }
-        _ => return smallvec![Action::event(event)],
+        _ => return Action::event(event).into(),
     }
 
-    smallvec![Action::event(event)]
+    Action::event(event).into()
 }
 
 /// Returns the actions for the first rule that matches the `input_event`, or
 /// `None` if the rule does not apply.
-fn match_rule(rule: &Rule, input_event: InputEvent) -> Option<Actions> {
+fn match_rule(rule: &Rule, input_event: InputEvent) -> Option<ActionBatch> {
     Some(match rule {
         Rule::Key(key_rule) => {
             let event_key = KeyCode::new(input_event.code());
@@ -33,7 +32,7 @@ fn match_rule(rule: &Rule, input_event: InputEvent) -> Option<Actions> {
 
             match key_rule {
                 KeyRule::KeyToSingle { from, to } if event_key == *from => {
-                    Actions::from(Action::key(*to, value))
+                    Action::key(*to, value).into()
                 }
                 KeyRule::KeyToMultiple { from, to } if event_key == *from => {
                     let keys = to.iter().copied();
@@ -43,16 +42,21 @@ fn match_rule(rule: &Rule, input_event: InputEvent) -> Option<Actions> {
                         Action::keys(keys, value)
                     };
 
-                    Actions::from(action)
+                    action.into()
                 }
-                KeyRule::Block { key } if event_key == *key => Actions::new(),
+                KeyRule::Block { key } if event_key == *key => Actions::new().into(),
                 KeyRule::Macro { from, r#macro } if event_key == *from => {
                     if value == 1 {
                         match r#macro {
-                            CompiledMacro::Static(actions) => actions.iter().cloned().collect(),
+                            CompiledMacro::Static(macro_def) => {
+                                ActionBatch {
+                                    actions: macro_def.actions.iter().cloned().collect(),
+                                    blocking: macro_def.blocking,
+                                }
+                            },
                         }
                     } else {
-                        Actions::new()
+                        Actions::new().into()
                     }
                 }
                 _ => return None,
@@ -64,13 +68,13 @@ fn match_rule(rule: &Rule, input_event: InputEvent) -> Option<Actions> {
 
             match axis_rule {
                 RelativeAxisRule::Invert(axis) if event_axis == *axis => {
-                    Actions::from(Action::relative_axis(*axis, -value))
+                    Action::relative_axis(*axis, -value).into()
                 }
                 RelativeAxisRule::Swap { a, b } if event_axis == *a => {
-                    Actions::from(Action::relative_axis(*b, value))
+                    Action::relative_axis(*b, value).into()
                 }
                 RelativeAxisRule::Swap { a, b } if event_axis == *b => {
-                    Actions::from(Action::relative_axis(*a, value))
+                    Action::relative_axis(*a, value).into()
                 }
                 RelativeAxisRule::Scale {
                     axis,
@@ -82,7 +86,7 @@ fn match_rule(rule: &Rule, input_event: InputEvent) -> Option<Actions> {
                     let emitted = scaled.round();
                     remain.store((scaled - emitted).to_bits(), Ordering::Relaxed);
 
-                    Actions::from(Action::relative_axis(*axis, emitted as i32))
+                    Action::relative_axis(*axis, emitted as i32).into()
                 }
                 _ => return None,
             }
@@ -96,6 +100,7 @@ mod tests {
     use evdev::{KeyEvent, RelativeAxisEvent};
     use std::sync::Arc;
     use std::sync::atomic::AtomicU32;
+    use crate::config::macros::MacroDef;
 
     #[test]
     fn key_to_single() {
@@ -107,7 +112,7 @@ mod tests {
         let event = *KeyEvent::new(KeyCode::KEY_A, 1);
 
         let result = match_rule(&rule, event);
-        let expected = Some(smallvec![Action::key(KeyCode::KEY_B, 1)]);
+        let expected = Some(Action::key(KeyCode::KEY_B, 1).into());
 
         assert_eq!(result, expected);
     }
@@ -136,10 +141,10 @@ mod tests {
         let event = *KeyEvent::new(KeyCode::KEY_A, 1);
 
         let result = match_rule(&rule, event);
-        let expected = Some(smallvec![Action::keys(
+        let expected = Some(Action::keys(
             [KeyCode::KEY_LEFTCTRL, KeyCode::KEY_C],
             1,
-        )]);
+        ).into());
 
         assert_eq!(result, expected);
     }
@@ -153,7 +158,7 @@ mod tests {
         let event = *KeyEvent::new(KeyCode::KEY_A, 1);
 
         let result = match_rule(&rule, event);
-        let expected = Some(Actions::new());
+        let expected = Some(Actions::new().into());
 
         assert_eq!(result, expected);
     }
@@ -164,7 +169,7 @@ mod tests {
         let profile = Profile::default();
         let result = evaluate(event, &profile);
 
-        let expected: Actions = smallvec![Action::event(event)];
+        let expected = Action::event(event).into();
 
         assert_eq!(result, expected);
     }
@@ -181,7 +186,7 @@ mod tests {
 
         let event = *KeyEvent::new(KeyCode::KEY_A, 1);
         let result = evaluate(event, &profile);
-        let expected: Actions = smallvec![Action::event(event)];
+        let expected = Action::event(event).into();
 
         assert_eq!(result, expected);
     }
@@ -198,7 +203,7 @@ mod tests {
         let event = *KeyEvent::new(KeyCode::KEY_A, 1);
         let result = evaluate(event, &profile);
 
-        assert!(result.is_empty())
+        assert!(result.actions.is_empty())
     }
 
     #[test]
@@ -219,20 +224,24 @@ mod tests {
 
         let event = *KeyEvent::new(KeyCode::KEY_A, 1);
         let result = evaluate(event, &profile);
-        let expected: Actions = smallvec![Action::key(KeyCode::KEY_B, 1)];
+        let expected = Action::key(KeyCode::KEY_B, 1).into();
 
         assert_eq!(result, expected);
     }
 
     #[test]
     fn macros_triggered_key_pressed() {
-        let rule = Rule::Key(KeyRule::Macro {
-            from: KeyCode::KEY_A,
-            r#macro: CompiledMacro::Static(Arc::from([
+        let macro_def = MacroDef {
+            actions: vec![
                 Action::key(KeyCode::KEY_B, 1),
                 Action::delay_from_millis(5),
                 Action::key(KeyCode::KEY_B, 0),
-            ])),
+            ],
+            blocking: false,
+        };
+        let rule = Rule::Key(KeyRule::Macro {
+            from: KeyCode::KEY_A,
+            r#macro: CompiledMacro::Static(Arc::new(macro_def)),
         });
 
         for value in 0..=2 {
@@ -242,7 +251,7 @@ mod tests {
             );
 
             if value != 1 {
-                assert_eq!(result, Some(Actions::new()));
+                assert_eq!(result, Some(Actions::new().into()));
             } else {
                 assert_eq!(
                     result,
@@ -250,7 +259,7 @@ mod tests {
                         Action::key(KeyCode::KEY_B, 1),
                         Action::delay_from_millis(5),
                         Action::key(KeyCode::KEY_B, 0)
-                    ])
+                    ].into())
                 );
             }
         }
@@ -265,7 +274,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Some(smallvec![Action::relative_axis(RelativeAxisCode::REL_X, -5)])
+            Some(Action::relative_axis(RelativeAxisCode::REL_X, -5).into())
         );
     }
 
@@ -291,7 +300,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Some(smallvec![Action::relative_axis(RelativeAxisCode::REL_Y, 7)])
+            Some(Action::relative_axis(RelativeAxisCode::REL_Y, 7).into())
         );
     }
 
@@ -307,7 +316,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Some(smallvec![Action::relative_axis(RelativeAxisCode::REL_X, 7)])
+            Some(Action::relative_axis(RelativeAxisCode::REL_X, 7).into())
         );
     }
 
@@ -337,7 +346,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Some(smallvec![Action::relative_axis(RelativeAxisCode::REL_X, 1)])
+            Some(Action::relative_axis(RelativeAxisCode::REL_X, 1).into())
         );
     }
 

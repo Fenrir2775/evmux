@@ -2,7 +2,7 @@ use crate::config::profile::Profile;
 use crate::device::input_device::InputDevice;
 use crate::input::reader::event_stream::RawEventStream;
 use crate::input::rule_engine;
-use crate::output::action::{Action, Actions};
+use crate::output::action::{Action, ActionBatch, Actions};
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use evdev::{EventType, KeyCode};
@@ -20,18 +20,19 @@ impl InputRuntime {
     pub(crate) fn start(
         device: &InputDevice,
         profile: Arc<Profile>,
-        output_tx: Sender<Actions>,
+        output_tx: Sender<(Arc<InputDevice>, ActionBatch)>,
     ) -> Result<Self> {
         let (stream, raw_rx) = RawEventStream::open(device)?;
+        let device = Arc::new(device.clone());
 
         let process = thread::spawn(move || {
             let mut pressed_keys = HashSet::new();
 
             while let Ok(event) = raw_rx.recv() {
-                let actions = rule_engine::evaluate(event, &profile);
-                track_emitted_keys(&actions, &mut pressed_keys);
+                let action_batch = rule_engine::evaluate(event, &profile);
+                track_emitted_keys(&action_batch.actions, &mut pressed_keys);
 
-                if output_tx.send(actions).is_err() {
+                if output_tx.send((device.clone(), action_batch)).is_err() {
                     break;
                 }
             }
@@ -42,7 +43,7 @@ impl InputRuntime {
                 .map(|k| Action::key(KeyCode::new(*k), 0))
                 .collect();
 
-            output_tx.send(actions).ok();
+            output_tx.send((device.clone(), actions.into())).ok();
         });
 
         Ok(Self { stream, process })
