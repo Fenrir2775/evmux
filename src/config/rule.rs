@@ -1,13 +1,12 @@
-use crate::config::macros::Macros;
+use crate::config::macros::{MacroDef, Macros};
 use crate::config::serde::raw::RawRule;
-use crate::output::action::Action;
 use anyhow::{Result, anyhow};
 use evdev::{KeyCode, RelativeAxisCode};
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 
 pub(crate) enum CompiledMacro {
-    Static(Arc<[Action]>),
+    Static(Arc<MacroDef>),
 }
 
 /// Define the rules how an input event is handled.
@@ -96,7 +95,8 @@ mod tests {
 
     fn macros_with(name: &str, actions: &[MacroAction]) -> Macros {
         let mut macros = Macros::default();
-        macros.insert_for_test(name, macro_compiler::compile_to_arc(actions));
+        let actions = macro_compiler::compile_to_arc(actions).to_vec();
+        macros.insert_for_test(name, Arc::new(MacroDef { actions, blocking: false }));
         macros
     }
 
@@ -153,8 +153,8 @@ mod tests {
 
         assert!(matches!(
             rule,
-            Rule::Key(KeyRule::Macro { from, r#macro: CompiledMacro::Static(actions) })
-                if from == KeyCode::KEY_A && !actions.is_empty()
+            Rule::Key(KeyRule::Macro { from, r#macro: CompiledMacro::Static(macro_def) })
+                if from == KeyCode::KEY_A && !macro_def.actions.is_empty()
         ));
     }
 

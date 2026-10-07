@@ -10,12 +10,19 @@ use std::sync::Arc;
 
 #[derive(Deserialize, Serialize)]
 struct MacroFile {
+    #[serde(default)]
+    blocking: bool,
     actions: Vec<MacroAction>,
+}
+
+pub(crate) struct MacroDef {
+    pub(crate) actions: Vec<Action>,
+    pub(crate) blocking: bool,
 }
 
 #[derive(Default)]
 pub(crate) struct Macros {
-    macros: HashMap<String, Arc<[Action]>>,
+    macros: HashMap<String, Arc<MacroDef>>,
 }
 
 impl Macros {
@@ -52,19 +59,20 @@ impl Macros {
         Ok(Self { macros })
     }
 
-    fn load_file(path: &Path) -> Result<Arc<[Action]>> {
+    fn load_file(path: &Path) -> Result<Arc<MacroDef>> {
         let content = std::fs::read_to_string(path)?;
-        let macro_actions = toml::from_str::<MacroFile>(&content)?.actions;
+        let file = toml::from_str::<MacroFile>(&content)?;
+        let actions = macro_compiler::compile_to_arc(&file.actions).to_vec();
 
-        Ok(macro_compiler::compile_to_arc(&macro_actions))
+        Ok(Arc::new(MacroDef { actions, blocking: file.blocking }))
     }
 
-    pub(crate) fn get(&self, name: &str) -> Option<Arc<[Action]>> {
+    pub(crate) fn get(&self, name: &str) -> Option<Arc<MacroDef>> {
         self.macros.get(name).cloned()
     }
 
     #[cfg(test)]
-    pub(crate) fn insert_for_test(&mut self, name: &str, actions: Arc<[Action]>) {
+    pub(crate) fn insert_for_test(&mut self, name: &str, actions: Arc<MacroDef>) {
         self.macros.insert(name.to_string(), actions);
     }
 }
@@ -77,6 +85,7 @@ mod tests {
     #[test]
     fn write_macro() {
         let f = MacroFile {
+            blocking: false,
             actions: vec![
                 MacroAction::Click(KeyCode::KEY_A),
                 MacroAction::Click(KeyCode::KEY_B),
