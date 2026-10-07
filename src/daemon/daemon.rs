@@ -25,7 +25,7 @@ impl Daemon {
                 
                 Self::respond(result, |d| match profile {
                     Some(p) => format!("Started '{}' with profile: '{p}'", d.name()),
-                    None => format!("Started '{device}'"),
+                    None => format!("Started '{}'", d.name()),
                 })
             },
             Request::Stop { device } => Self::respond(self.manager.stop(&device), |d| {
