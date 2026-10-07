@@ -26,7 +26,7 @@ key = "KEY_SYSRQ"
 [[rules]]
 type = "macro"
 from = "KEY_F1"
-name = desktop
+name = "desktop"
 
 # Invert an axis
 [[rules]]
