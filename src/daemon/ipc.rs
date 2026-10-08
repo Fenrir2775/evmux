@@ -124,7 +124,7 @@ pub(crate) fn send_request(request: &Request) -> Result<Response> {
 /// Binds the unix socket and spawns the listener.
 pub(crate) fn spawn_ipc_listener(tx: Sender<(Request, UnixStream)>) -> Result<JoinHandle<()>> {
     let path = socket_path();
-    std::fs::remove_file(&path)?;
+    let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path)
         .with_context(|| format!("Could not bind to {}", path.to_string_lossy()))?;
 
