@@ -1,3 +1,4 @@
+blocking = false
 actions = [
     "move_relative(REL_Y, 100)",
     "click(BTN_LEFT)",
