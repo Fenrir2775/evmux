@@ -100,6 +100,7 @@ mod tests {
     use evdev::{KeyEvent, RelativeAxisEvent};
     use std::sync::Arc;
     use std::sync::atomic::AtomicU32;
+    use smallvec::smallvec;
     use crate::config::macros::MacroDef;
 
     #[test]
